@@ -13,7 +13,7 @@ class MulticastPingClient(DatagramProtocol):
 
     def datagramReceived(self, datagram, address):
         print "Datagram %s received from %s" % (repr(datagram), repr(address))
+        exit()
 
-
-reactor.listenMulticast(8005, MulticastPingClient(), listenMultiple=True)
+reactor.listenMulticast(8006, MulticastPingClient(), listenMultiple=True)
 reactor.run()

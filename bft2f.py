@@ -7,12 +7,14 @@ from mininet.net import Mininet
 from mininet.log import lg, info
 from mininet.util import dumpNodeConnections
 from mininet.cli import CLI
+from mininet.util import pmonitor
 
 from subprocess import Popen, PIPE
 from time import sleep, time
 from multiprocessing import Process
 from argparse import ArgumentParser
 
+from signal import SIGINT
 import sys
 import os
 import math
@@ -80,15 +82,25 @@ class Bft2fTopo(Topo):
 # contribute neatly written (using classes) monitoring scripts for
 # Mininet!
 
-def multicast_test(net):
+def multicast_test(net,seconds=6):
     h1 = net.getNodeByName('h1')
     h2 = net.getNodeByName('h2')
     h1.cmd("route add -net default dev h1-eth0")
     h2.cmd("route add -net default dev h2-eth0")
-    h2.popen("python MulticastServer.py")
-    sleep(3)
-    h1.popen("python MulticastClient.py")
-
+    popens = {}
+    #for h in net.hosts:
+    #    popens[ h ] = h.popen('ping', server.IP() )
+    print "Monitoring output for", seconds, "seconds"
+    popens[h1]=h1.popen("python MulticastServer.py")
+    sleep(1)
+    popens[h2]=h2.popen("python MulticastClient.py")
+    endTime = time() + seconds
+    for h, line in pmonitor( popens, timeoutms=500 ):
+        if h:
+           print '%s: %s' % ( h.name, line ),
+        if time() >= endTime:
+           for p in popens.values():
+              p.send_signal( SIGINT )
 
 def bft2f():
     if not os.path.exists(args.dir):
