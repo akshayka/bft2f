@@ -84,6 +84,8 @@ class BFT2F_Client(DatagramProtocol):
 
         self.version = BFT2F_VERSION(node_id=0, view=0, n=0, hcd="")
 
+        self.ts = 0
+
         #load public keys
         self.server_pubkeys=[]
         for i in xrange(0, 3 * F + 1):
@@ -113,7 +115,7 @@ class BFT2F_Client(DatagramProtocol):
         print "thrift sign in"
         msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.REQUEST,
                             op=BFT2F_OP(type=SIGN_IN, user_id=user_id, token=token),
-                            ts=1,
+                            ts=self.make_ts(),
                             client_id=self.client_id,
                             version=self.version,
                             sig='')
@@ -128,7 +130,7 @@ class BFT2F_Client(DatagramProtocol):
         signature = msg.sig
         msg.sig = ""
         if not self.verify_func(signer,signature,msg.SerializeToString()):
-            print "wrong signature : %d :"%msg.node_id, msg.msg_type
+            print "wrong signature : %d :" % msg.node_id, msg.msg_type
             sys.stdout.flush()
             return
         else:
@@ -185,6 +187,10 @@ class BFT2F_Client(DatagramProtocol):
         sign = self.private_key.sign(digest) 
         return b64encode(sign)
 
+    def make_ts(self):
+        ret = self.ts
+        self.ts = self.ts + 1
+        return ret
 
 def start_twisted():
     reactor.listenMulticast(BFT2F_PORT, twisted_client, listenMultiple=True)
