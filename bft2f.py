@@ -13,8 +13,6 @@ from time import sleep, time
 from multiprocessing import Process
 from argparse import ArgumentParser
 
-from monitor import monitor_qlen
-
 import sys
 import os
 import math
@@ -56,11 +54,10 @@ parser.add_argument('--cong',
 # Expt parameters
 args = parser.parse_args()
 
-class BTopo(Topo):
-    "Simple topology for bufferbloat experiment."
+class Bft2fTopo(Topo):
 
     def __init__(self, n=2):
-        super(BBTopo, self).__init__()
+        super(Bft2fTopo, self).__init__()
 
         # TODO: create two hosts
         h1=self.addHost('h1')
@@ -86,16 +83,17 @@ class BTopo(Topo):
 def multicast_test(net):
     h1 = net.getNodeByName('h1')
     h2 = net.getNodeByName('h2')
-    h1.popen("route add -net default dev h1-eth0")
-    h2.popen("route add -net default dev h2-eth0")
-    h1.popen("python MulticastClient.py > h1out.txt 2>&1")
-    h2.popen("python MulticastServer.py > h2out.txt 2>&1")
+    h1.cmd("route add -net default dev h1-eth0")
+    h2.cmd("route add -net default dev h2-eth0")
+    h2.popen("python MulticastServer.py")
+    sleep(3)
+    h1.popen("python MulticastClient.py")
 
 
 def bft2f():
     if not os.path.exists(args.dir):
         os.makedirs(args.dir)
-    topo = BBTopo()
+    topo = Bft2fTopo()
     net = Mininet(topo=topo, host=CPULimitedHost, link=TCLink)
     net.start()
     # This dumps the topology and how nodes are interconnected through
@@ -103,8 +101,8 @@ def bft2f():
     dumpNodeConnections(net.hosts)
     # This performs a basic all pairs ping test.
     net.pingAll()
-    #multicast_test(net)
-    CLI(net)
+    multicast_test(net)
+    #CLI(net)
     net.stop()
 
 if __name__ == "__main__":

@@ -24,5 +24,6 @@ class MulticastPingPong(DatagramProtocol):
 
 # We use listenMultiple=True so that we can run MulticastServer.py and
 # MulticastClient.py on same machine:
+print "Starting server"
 reactor.listenMulticast(8005, MulticastPingPong(), listenMultiple=True)
 reactor.run()
