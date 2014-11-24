@@ -9,7 +9,7 @@ import inspect
 CacheEntry = namedtuple('CacheEntry', 'req rep')
 MULTICAST_ADDR = "228.0.0.5"
 PORT = 8005
-F = 7
+F = 2
 
 
 class BFT2F_Node(DatagramProtocol):
@@ -17,12 +17,21 @@ class BFT2F_Node(DatagramProtocol):
         self.node_id = node_id
         self.view = 0
         self.ReplayCache = {}
-        self.primary = '0' # h0 always starts as primary
+        self.primary = 0 # h0 always starts as primary
         self.highest_accepted_n = 0
-        self.put_request_msgs = {}
+        self.request_msgs = {}
         self.pre_prepare_msgs = {}
         self.prepare_msgs = {}
         self.T = [""] # start with emtpy HCD
+        self.V = [None] * (3 * F + 1)
+        
+        for i in range(0, 3 * F + 1):
+            self.V[i] = BFT2F_VERSION(node_id=i,
+                                      view=self.view,
+                                      n=self.highest_accepted_n,
+                                      hcd="")
+
+        self.kv_store = {}
 
     def startProtocol(self):
         """
@@ -41,18 +50,21 @@ class BFT2F_Node(DatagramProtocol):
 
         #if not self.verify_sig(msg.sig):
         #    return
-        if msg.msg_type == BFT2F_MESSAGE.PUT_REQUEST:
-            print "Recieved a PUT_REQUEST"
+        if msg.msg_type == BFT2F_MESSAGE.REQUEST:
+            print "Recieved a REQUEST"
             sys.stdout.flush()
-            self.handle_put_request(msg, address)
-        elif msg.msg_type == BFT2F_MESSAGE.GET_REQUEST:
-            print "Recieved a GET_REQUEST"
+            self.handle_request(msg, address)
         elif msg.msg_type == BFT2F_MESSAGE.PRE_PREPARE:
             print "Recieved a PRE_PREPARE"
-        elif msg.msg_type == BFT2F_MESSAGE.PREPARE:
+            sys.stdout.flush()            
+            self.handle_pre_prepare(msg, address)
+        elif msg.msg_type == BFT2F_MESSAGE.PREPARE:            
             print "Recieved a PREPARE"
+            sys.stdout.flush()
+            self.handle_prepare(msg, address)
         elif msg.msg_type == BFT2F_MESSAGE.COMMIT:
             print "Recieved a COMMIT"
+            self.handle_commit(msg, address)
         elif msg.msg_type == BFT2F_MESSAGE.VIEW_CHANGE:
             print "Recieved a VIEW_CHANGE"
         elif msg.msg_type == BFT2F_MESSAGE.NEW_VIEW:
@@ -62,7 +74,7 @@ class BFT2F_Node(DatagramProtocol):
 
         sys.stdout.flush()
         
-    def handle_put_request(self, msg, address):
+    def handle_request(self, msg, address):
         last_rep_entry = self.ReplayCache.get(msg.client_id)
         if last_rep_entry:
             if last_rep_entry.req.ts < msg.ts:
@@ -82,24 +94,23 @@ class BFT2F_Node(DatagramProtocol):
                                             n=self.highest_accepted_n + 1,
                                             req_D=self.digest_func(msg))
             pp_msg.sig = self.sig_func(pp_msg)
-            print "sending"
-            sys.stdout.flush()
             self.send_multicast(pp_msg)
             print "sending"
             sys.stdout.flush()
 
-
         self.ReplayCache[msg.client_id] = CacheEntry(req=msg, rep=None)
-        self.put_request_msgs[self.digest_func(msg)] = msg
+        self.request_msgs[self.digest_func(msg)] = msg
 
     def handle_pre_prepare(self, msg, address):
-        if self.digest_func(msg.msg) not in self.read_write_msgs or\
+        if msg.req_D not in self.request_msgs or\
                 self.view != msg.view or\
-                self.msg.n > self.highest_accepted_n + 10 or\
-                self.pre_prepare_msgs.get(msg.n) != msg:
-           #ignore
-           return;
-
+                msg.n > self.highest_accepted_n + 10 or\
+                (self.pre_prepare_msgs.get(msg.n) != msg and\
+                     self.pre_prepare_msgs.get(msg.n)):
+            print "ignore"
+            sys.stdout.flush()
+            return;
+        
         self.pre_prepare_msgs[msg.n] = msg
         p_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.PREPARE,
                               node_id=self.node_id,
@@ -119,8 +130,8 @@ class BFT2F_Node(DatagramProtocol):
         
         self.prepare_msgs[msg.n].append(msg)
         if len(self.prepare_msgs[msg.n]) >= 2 * F + 1:
-            pr_msg = self.put_request_msgs[msg.req_D]
-            self.T.append(self.digest_func(self.digest_func(pr_msg) + self.T[-1]))
+            r_msg = self.request_msgs[msg.req_D]
+            self.T.append(self.digest_func(self.digest_func(r_msg) + self.T[-1]))
             self.V[self.node_id] = BFT2F_VERSION(node_id=self.node_id,
                                                  view=self.view,
                                                  n=msg.n,
@@ -135,21 +146,28 @@ class BFT2F_Node(DatagramProtocol):
     def handle_commit(self, msg, address):
         #TODO check if HCD is valid
         self.V[msg.node_id] = msg.version
-        all_versions = self.V.values()
-        if len([v for v in all_versions if versions_match(v, msg.version)]) > 2*F + 1:
-            pr_msg = self.put_request_msgs[self.pre_prepare_msgs[msg.version.n]]
-            #execute
-            print pr_msg.op
-            r_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.REPLY,
+        print len([v for v in self.V if self.versions_match(v, msg.version)])
+
+        if len([v for v in self.V if self.versions_match(v, msg.version)]) >= 2*F + 1:
+            r_msg = self.request_msgs[self.pre_prepare_msgs[msg.version.n]]
+            res = self.execute_op(pr_msg.op)
+            client_id = r_msg.client_id
+            rp_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.REPLY,
                                   client_id=pr_msg.client_id,
                                   ts=pr_msg.ts,
-                                  res='res',
+                                  res=res,
                                   version=self.V[msg.node_id])
-            r_msg.sig = self.sig_func(r_msg)
-            self.ReplayCache[pr_msg.client_id]=r_msg
-            self.send_multicast(r_msg)
+            rp_msg.sig = self.sig_func(r_msg)
+            self.ReplayCache[r_msg.client_id]=rp_msg
+            self.send_msg(rp_msg, (client_id, PORT))
 
-    def versions_match(v1, v2):
+    def execute_op(self, op):
+        #TODO tokens
+        if op.type == BFT2F_OP.PUT:
+            self.kv_store[op.key] = op.val
+        return self.kv_store[op.key]
+
+    def versions_match(self, v1, v2):
         return (v1.view == v2.view) and (v1.n == v2.n) and (v1.hcd == v2.hcd)
 
     def send_msg(self, msg, address):
@@ -170,11 +188,11 @@ class BFT2F_Node(DatagramProtocol):
 def main():
 	parser = ArgumentParser()
 	parser.add_argument('--node_id', '-n',
-                            type=int,
+                            type=long,
                             required=False)
 	args = parser.parse_args()
 
-	reactor.listenMulticast(PORT, BFT2F_Node(str(args.node_id)), listenMultiple=True)
+	reactor.listenMulticast(PORT, BFT2F_Node(args.node_id), listenMultiple=True)
 	reactor.run()
 
 if __name__ == '__main__':

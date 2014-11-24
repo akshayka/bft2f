@@ -1,31 +1,40 @@
 message BFT2F_VERSION {
-  required string node_id = 1;
+  required int64 node_id = 1;
   required int64 view = 2;
   required int64 n = 3;
   required string hcd = 4;
 }
 
+message BFT2F_OP {
+  enum BFT2F_OP_TYPE {
+    PUT = 0;
+    GET = 1;
+  }
+  required BFT2F_OP_TYPE type = 1;
+  required string key = 2;
+  optional string token = 3;
+  optional string val = 4;
+}
 
 message BFT2F_MESSAGE {
   enum BFT2F_MESSAGE_TYPE {
-    PUT_REQUEST = 0;
-    GET_REQUEST = 1;
-    PRE_PREPARE = 2;
-    PREPARE = 3;
-    COMMIT = 4;
-    REPLY = 5;
-    VIEW_CHANGE = 6;
-    NEW_VIEW = 7;
-    CHECKPOINT = 8;
+    REQUEST = 0;
+    PRE_PREPARE = 1;
+    PREPARE = 2;
+    COMMIT = 3;
+    REPLY = 4;
+    VIEW_CHANGE = 5;
+    NEW_VIEW = 6;
+    CHECKPOINT = 7;
   }
 
   required BFT2F_MESSAGE_TYPE msg_type = 1;
   required string sig = 2;
-  optional string op = 3;
+  optional BFT2F_OP op = 3;
   optional int64 ts = 4;
   optional string client_id = 5;
   optional BFT2F_VERSION version = 6;
-  optional string node_id = 7;
+  optional int64 node_id = 7;
   optional int64 view = 8;
   optional int64 n = 9;
   optional string req_D = 10;

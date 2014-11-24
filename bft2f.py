@@ -52,7 +52,8 @@ def start_nodes(net):
 def start_client(net):
     client = net.getNodeByName('client')
     client.cmd("route add -net default dev client-eth0")
-    popens[client] = client.popen('python start_client.py 2>&1', shell=True)
+    popens[client] = client.popen('python start_client.py --client_id=%s 2>&1' % (client.IP()),
+                                  shell=True)
     
 
 def main():
