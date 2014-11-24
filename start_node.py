@@ -5,12 +5,13 @@ from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor
 from collections import namedtuple
 import inspect
+from threading import Timer
 
 CacheEntry = namedtuple('CacheEntry', 'req rep')
 MULTICAST_ADDR = "228.0.0.5"
 PORT = 8005
 F = 2
-
+VIEW_TIMEOUT = 2
 
 class BFT2F_Node(DatagramProtocol):
     def __init__(self, node_id):
@@ -24,6 +25,9 @@ class BFT2F_Node(DatagramProtocol):
         self.prepare_msgs = {}
         self.T = [""] # start with emtpy HCD
         self.V = [None] * (3 * F + 1)
+
+	self.timer = Timer(VIEW_TIMEOUT,self.change_view,args=[10])
+	self.timer.start()
         
         for i in range(0, 3 * F + 1):
             self.V[i] = BFT2F_VERSION(node_id=i,
@@ -32,6 +36,12 @@ class BFT2F_Node(DatagramProtocol):
                                       hcd="")
 
         self.kv_store = {}
+
+    def change_view(self, curr_view):
+        print curr_view
+        sys.stdout.flush()
+	self.timer = Timer(VIEW_TIMEOUT,self.change_view,args=[10])
+        self.timer.start()
 
     def startProtocol(self):
         """
@@ -193,6 +203,5 @@ def main():
 
 	reactor.listenMulticast(PORT, BFT2F_Node(args.node_id), listenMultiple=True)
 	reactor.run()
-
 if __name__ == '__main__':
 	main()
