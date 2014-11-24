@@ -6,6 +6,7 @@ from twisted.internet import reactor
 from collections import namedtuple
 import inspect
 from threading import Timer
+from enum import Enum
 
 CacheEntry = namedtuple('CacheEntry', 'req rep')
 MULTICAST_ADDR = "228.0.0.5"
@@ -13,9 +14,14 @@ PORT = 8005
 F = 2
 VIEW_TIMEOUT = 2
 
+class NodeState(Enum):
+    Normal=1
+    ViewChange=2
+
 class BFT2F_Node(DatagramProtocol):
     def __init__(self, node_id):
         self.node_id = node_id
+	self.state=NodeState.Normal
         self.view = 0
         self.ReplayCache = {}
         self.primary = 0 # h0 always starts as primary
@@ -26,9 +32,6 @@ class BFT2F_Node(DatagramProtocol):
         self.T = [""] # start with emtpy HCD
         self.V = [None] * (3 * F + 1)
 
-	self.timer = Timer(VIEW_TIMEOUT,self.change_view,args=[10])
-	self.timer.start()
-        
         for i in range(0, 3 * F + 1):
             self.V[i] = BFT2F_VERSION(node_id=i,
                                       view=self.view,
@@ -37,11 +40,10 @@ class BFT2F_Node(DatagramProtocol):
 
         self.kv_store = {}
 
-    def change_view(self, curr_view):
-        print curr_view
+    def change_view(self):
+        print "timed out: %d"%self.view
         sys.stdout.flush()
-	self.timer = Timer(VIEW_TIMEOUT,self.change_view,args=[10])
-        self.timer.start()
+	self.state=NodeState.ViewChange
 
     def startProtocol(self):
         """
@@ -50,13 +52,14 @@ class BFT2F_Node(DatagramProtocol):
         # Set the TTL>1 so multicast will cross router hops:
         self.transport.setTTL(5)
         # Join a specific multicast group:
-        self.transport.joinGroup("228.0.0.5")
+        self.transport.joinGroup(MULTICAST_ADDR)
         print "started"
         sys.stdout.flush()
 
     def datagramReceived(self, datagram, address):
         msg = BFT2F_MESSAGE()
         msg.ParseFromString(datagram)
+	#TODO check node state. If it's in view change, ignore everything other than new-view
 
         #if not self.verify_sig(msg.sig):
         #    return
@@ -94,7 +97,11 @@ class BFT2F_Node(DatagramProtocol):
                 return
             else:
                 if last_rep_entry.rep.version != msg.version:
-                    return                
+                    return
+	#start timeout for view change
+	self.timer = Timer(VIEW_TIMEOUT,self.change_view,args=[])
+	self.timer.start()
+
         if self.node_id == self.primary:
             print "handling"
             sys.stdout.flush()
@@ -112,6 +119,9 @@ class BFT2F_Node(DatagramProtocol):
         self.request_msgs[self.digest_func(msg)] = msg
 
     def handle_pre_prepare(self, msg, address):
+	#cancel timeout if any
+	self.timer.cancel()
+
         if msg.req_D not in self.request_msgs or\
                 self.view != msg.view or\
                 msg.n > self.highest_accepted_n + 10 or\

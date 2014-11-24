@@ -5,6 +5,9 @@ from argparse import ArgumentParser
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor
 
+MULTICAST_ADDR = "228.0.0.5"
+PORT = 8005
+
 parser = ArgumentParser()
 parser.add_argument('--client_id', '-ci',
                     type=str,
@@ -29,7 +32,7 @@ class BFT2F_Client(DatagramProtocol):
                             sig='sig')
         sys.stdout.flush()
 
-        self.transport.write(msg.SerializeToString(), ("228.0.0.5", 8005))
+        self.transport.write(msg.SerializeToString(), (MULTICAST_ADDR, PORT))
         sys.stdout.flush()
 
     def datagramReceived(self, datagram, address):
