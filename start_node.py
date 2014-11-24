@@ -129,7 +129,7 @@ class BFT2F_Node(DatagramProtocol):
             return
         
         self.prepare_msgs[msg.n].append(msg)
-        if len(self.prepare_msgs[msg.n]) >= 2 * F + 1:
+        if len(self.prepare_msgs[msg.n]) == 2 * F + 1:
             r_msg = self.request_msgs[msg.req_D]
             self.T.append(self.digest_func(self.digest_func(r_msg) + self.T[-1]))
             self.V[self.node_id] = BFT2F_VERSION(node_id=self.node_id,
@@ -145,20 +145,19 @@ class BFT2F_Node(DatagramProtocol):
 
     def handle_commit(self, msg, address):
         #TODO check if HCD is valid
-        self.V[msg.node_id] = msg.version
-        print len([v for v in self.V if self.versions_match(v, msg.version)])
-
-        if len([v for v in self.V if self.versions_match(v, msg.version)]) >= 2*F + 1:
-            r_msg = self.request_msgs[self.pre_prepare_msgs[msg.version.n]]
-            res = self.execute_op(pr_msg.op)
+        self.V[msg.version.node_id] = msg.version
+        if len([v for v in self.V if self.versions_match(v, msg.version)]) == 2*F + 1:
+            r_msg = self.request_msgs[self.pre_prepare_msgs[msg.version.n].req_D]
+            res = self.execute_op(r_msg.op)
             client_id = r_msg.client_id
             rp_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.REPLY,
-                                  client_id=pr_msg.client_id,
-                                  ts=pr_msg.ts,
+                                  client_id=r_msg.client_id,
+                                  ts=r_msg.ts,
                                   res=res,
                                   version=self.V[msg.node_id])
             rp_msg.sig = self.sig_func(r_msg)
             self.ReplayCache[r_msg.client_id]=rp_msg
+            print "replying to %s %s" % (client_id, PORT)
             self.send_msg(rp_msg, (client_id, PORT))
 
     def execute_op(self, op):

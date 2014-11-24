@@ -17,7 +17,7 @@ class BFT2F_Client(DatagramProtocol):
 
     def startProtocol(self):
         # Join the multicast address, so we can receive replies:
-        self.transport.joinGroup("228.0.0.5")
+        #self.transport.joinGroup("228.0.0.5")
         # Send to 228.0.0.5:8005 - all listeners on the multicast address
         # (including us) will receive this message.
         # send commit
@@ -27,8 +27,6 @@ class BFT2F_Client(DatagramProtocol):
                             client_id=args.client_id,
                             version=BFT2F_VERSION(node_id=0, view=0, n=0, hcd=""),
                             sig='sig')
-        print len(msg.SerializeToString())
-        print msg.SerializeToString()
         sys.stdout.flush()
 
         self.transport.write(msg.SerializeToString(), ("228.0.0.5", 8005))
@@ -39,7 +37,7 @@ class BFT2F_Client(DatagramProtocol):
         msg = BFT2F_MESSAGE()
         msg.ParseFromString(datagram)
         print msg.res
-
+        sys.stdout.flush()
 
 
 
