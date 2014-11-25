@@ -11,7 +11,7 @@ from threading import Timer
 
 from Crypto.PublicKey import RSA 
 from Crypto.Signature import PKCS1_v1_5 
-from Crypto.Hash import SHA256 
+from Crypto.Hash import SHA 
 from base64 import b64encode, b64decode
 
 #constants
@@ -231,7 +231,7 @@ class BFT2F_Node(DatagramProtocol):
                                   res=res,
                                   version=self.V[msg.node_id],
                                   sig="")
-            rp_msg.sig = self.sign_func(r_msg.SerializeToString())
+            rp_msg.sig = self.sign_func(rp_msg.SerializeToString())
             self.ReplayCache[r_msg.client_id]=rp_msg
             print "replying to %s %s" % (client_id, PORT)
             self.send_msg(rp_msg, (client_id, PORT))
@@ -253,23 +253,20 @@ class BFT2F_Node(DatagramProtocol):
 
     def digest_func(self, data):
         #return ""
-        digest = SHA256.new()
-        digest.update(data)  
+        digest = SHA.new(data)
         return b64encode(digest.digest())
 
     def verify_func(self, signer, signature, data):
         # rsakey = RSA.importKey(pub_key) 
         # signer = PKCS1_v1_5.new(rsakey) 
-        digest = SHA256.new() 
-        digest.update(data) 
+        digest = SHA.new(data) 
         if signer.verify(digest, b64decode(signature)):
             return True
         return False
 
     def sign_func(self, data):
         #return ""
-        digest = SHA256.new()
-        digest.update(data) 
+        digest = SHA.new(data)
         sign = self.private_key.sign(digest) 
         #print "sign : %s"%sign
         return b64encode(sign)
