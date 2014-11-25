@@ -1,27 +1,34 @@
 import sys
-from  bft2f_pb2 import *
+from bft2f_pb2 import *
 from argparse import ArgumentParser
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor
 from collections import namedtuple
 import inspect
-from threading import Timer
-from enum import Enum
 
-CacheEntry = namedtuple('CacheEntry', 'req rep')
+from threading import Timer
+#from enum import Enum
+
+from Crypto.PublicKey import RSA 
+from Crypto.Signature import PKCS1_v1_5 
+from Crypto.Hash import SHA256 
+from base64 import b64encode, b64decode
+
+#constants
 MULTICAST_ADDR = "228.0.0.5"
 PORT = 8005
 F = 2
 VIEW_TIMEOUT = 2
+CacheEntry = namedtuple('CacheEntry', 'req rep')
 
-class NodeState(Enum):
+class NodeState():
     Normal=1
     ViewChange=2
 
 class BFT2F_Node(DatagramProtocol):
     def __init__(self, node_id):
         self.node_id = node_id
-	self.state=NodeState.Normal
+        self.state=NodeState.Normal
         self.view = 0
         self.ReplayCache = {}
         self.primary = 0 # h0 always starts as primary
@@ -30,15 +37,32 @@ class BFT2F_Node(DatagramProtocol):
         self.pre_prepare_msgs = {}
         self.prepare_msgs = {}
         self.T = [""] # start with emtpy HCD
+        self.kv_store = {}
+        #Version init
         self.V = [None] * (3 * F + 1)
-
-        for i in range(0, 3 * F + 1):
+        #TODO what if it's retored from temporal outage?
+        #I guess we may need some protocol to ask around using multicast -J
+        for i in xrange(0, 3 * F + 1):
             self.V[i] = BFT2F_VERSION(node_id=i,
                                       view=self.view,
                                       n=self.highest_accepted_n,
                                       hcd="")
+        # load private key
+        key = open("./certs/server%d.key"%self.node_id, "r").read() 
+        self.private_key = PKCS1_v1_5.new(RSA.importKey(key))
 
-        self.kv_store = {}
+        key = open("./certs/rootCA_pub.pem", "r").read() 
+        self.rootCA_pubkey = PKCS1_v1_5.new(RSA.importKey(key))
+
+        # load public keys
+        # self.server_pubkeys=[]
+        # for i in xrange(0, 3 * F + 1):
+        #     key = open("./certs/server%d.pem"%i, "r").read() 
+        #     self.server_pubkeys.append(PKCS1_v1_5.new(RSA.importKey(key)))
+        # self.client_pubkeys=[]
+        # for i in xrange(0, 2):
+        #     key = open("./certs/client%d.pem"%i, "r").read() 
+        #     self.client_pubkeys.append(PKCS1_v1_5.new(RSA.importKey(key)))
 
     def change_view(self):
         print "timed out: %d"%self.view
@@ -62,7 +86,8 @@ class BFT2F_Node(DatagramProtocol):
     def datagramReceived(self, datagram, address):
         msg = BFT2F_MESSAGE()
         msg.ParseFromString(datagram)
-	#TODO check node state. If it's in view change, ignore everything other than new-view
+        #TODO check node state.
+        #If it's in view change, ignore everything other than new-view
 
         #if not self.verify_sig(msg.sig):
         #    return
@@ -109,21 +134,22 @@ class BFT2F_Node(DatagramProtocol):
                                             node_id=self.node_id,
                                             view=self.view,
                                             n=self.highest_accepted_n + 1,
-                                            req_D=self.digest_func(msg))
-            pp_msg.sig = self.sig_func(pp_msg)
+                                            req_D=self.digest_func(msg.SerializeToString()),
+                                            sig="")
+            pp_msg.sig = self.sign_func(pp_msg.SerializeToString())
             self.send_multicast(pp_msg)
             print "sending"
             sys.stdout.flush()
 
         self.ReplayCache[msg.client_id] = CacheEntry(req=msg, rep=None)
-        self.request_msgs[self.digest_func(msg)] = msg
-	#start timeout for view change
-	self.timer = Timer(VIEW_TIMEOUT,self.change_view,args=[])
-	self.timer.start()
+        self.request_msgs[self.digest_func(msg.SerializeToString())] = msg
+        #start timeout for view change
+        self.timer = Timer(VIEW_TIMEOUT,self.change_view,args=[])
+        self.timer.start()
 
     def handle_pre_prepare(self, msg, address):
-	#cancel timeout if any
-	self.timer.cancel()
+        #cancel timeout if any
+        self.timer.cancel()
 
         if msg.req_D not in self.request_msgs or\
                 self.view != msg.view or\
@@ -140,7 +166,7 @@ class BFT2F_Node(DatagramProtocol):
                               view=self.view,
                               n=msg.n,
                               req_D=msg.req_D)
-        p_msg.sig = self.sig_func(p_msg)
+        p_msg.sig = self.sign_func(p_msg.SerializeToString())
 
         self.highest_accepted_n = msg.n
         self.send_multicast(p_msg)
@@ -154,7 +180,7 @@ class BFT2F_Node(DatagramProtocol):
         self.prepare_msgs[msg.n].append(msg)
         if len(self.prepare_msgs[msg.n]) == 2 * F + 1:
             r_msg = self.request_msgs[msg.req_D]
-            self.T.append(self.digest_func(self.digest_func(r_msg) + self.T[-1]))
+            self.T.append(self.digest_func(self.digest_func(r_msg.SerializeToString()) + self.T[-1]))
             self.V[self.node_id] = BFT2F_VERSION(node_id=self.node_id,
                                                  view=self.view,
                                                  n=msg.n,
@@ -162,7 +188,7 @@ class BFT2F_Node(DatagramProtocol):
             c_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.COMMIT,
                                   version=self.V[self.node_id])
 
-            c_msg.sig=self.sig_func(c_msg)
+            c_msg.sig=self.sign_func(c_msg.SerializeToString())
             self.send_multicast(c_msg)
 
 
@@ -178,7 +204,7 @@ class BFT2F_Node(DatagramProtocol):
                                   ts=r_msg.ts,
                                   res=res,
                                   version=self.V[msg.node_id])
-            rp_msg.sig = self.sig_func(r_msg)
+            rp_msg.sig = self.sign_func(r_msg.SerializeToString())
             self.ReplayCache[r_msg.client_id]=rp_msg
             print "replying to %s %s" % (client_id, PORT)
             self.send_msg(rp_msg, (client_id, PORT))
@@ -199,10 +225,29 @@ class BFT2F_Node(DatagramProtocol):
         self.transport.write(msg.SerializeToString(), (MULTICAST_ADDR, PORT))
 
     def digest_func(self, data):
-        return 'digest'
+        return ""
+        digest = SHA256.new()
+        digest.update(b64decode(data))  
+        return b64encode(digest.digest())
 
-    def sig_func(self, msg):
-        return 'sig'
+    def verify_func(self, signature, data):
+        # rsakey = RSA.importKey(pub_key) 
+        # signer = PKCS1_v1_5.new(rsakey) 
+        digest = SHA256.new() 
+        digest.update(b64decode(data)) 
+        #if signer.verify(digest, b64decode(signature)):
+        if signer.verify(digest, signature):
+            return True
+        return False
+
+    def sign_func(self, data):
+        return ""
+        digest = SHA256.new()
+        digest.update(b64decode(data)) 
+        sign = self.private_key.sign(digest) 
+        #return b64encode(sign)
+        print "sign : %s"%sign
+        return sign
 
 # We use listenMultiple=True so that we can run MulticastServer.py and
 # MulticastClient.py on same machine:

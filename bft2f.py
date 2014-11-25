@@ -1,8 +1,6 @@
 #!/usr/bin/python
-
 import sys
 import os
-
 from mininet.topo import Topo
 from mininet.node import CPULimitedHost
 from mininet.link import TCLink
