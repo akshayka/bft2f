@@ -44,6 +44,9 @@ class BFT2F_Node(DatagramProtocol):
         print "timed out: %d"%self.view
         sys.stdout.flush()
 	self.state=NodeState.ViewChange
+	#TODO send view change request
+	self.timer = Timer(VIEW_TIMEOUT,self.change_view,args=[])
+	self.timer.start()
 
     def startProtocol(self):
         """
@@ -98,9 +101,6 @@ class BFT2F_Node(DatagramProtocol):
             else:
                 if last_rep_entry.rep.version != msg.version:
                     return
-	#start timeout for view change
-	self.timer = Timer(VIEW_TIMEOUT,self.change_view,args=[])
-	self.timer.start()
 
         if self.node_id == self.primary:
             print "handling"
@@ -117,6 +117,9 @@ class BFT2F_Node(DatagramProtocol):
 
         self.ReplayCache[msg.client_id] = CacheEntry(req=msg, rep=None)
         self.request_msgs[self.digest_func(msg)] = msg
+	#start timeout for view change
+	self.timer = Timer(VIEW_TIMEOUT,self.change_view,args=[])
+	self.timer.start()
 
     def handle_pre_prepare(self, msg, address):
 	#cancel timeout if any
