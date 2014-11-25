@@ -54,15 +54,15 @@ class BFT2F_Node(DatagramProtocol):
         key = open("./certs/rootCA_pub.pem", "r").read() 
         self.rootCA_pubkey = PKCS1_v1_5.new(RSA.importKey(key))
 
-        # load public keys
-        # self.server_pubkeys=[]
-        # for i in xrange(0, 3 * F + 1):
-        #     key = open("./certs/server%d.pem"%i, "r").read() 
-        #     self.server_pubkeys.append(PKCS1_v1_5.new(RSA.importKey(key)))
-        # self.client_pubkeys=[]
-        # for i in xrange(0, 2):
-        #     key = open("./certs/client%d.pem"%i, "r").read() 
-        #     self.client_pubkeys.append(PKCS1_v1_5.new(RSA.importKey(key)))
+        #load public keys
+        self.server_pubkeys=[]
+        for i in xrange(0, 3 * F + 1):
+            key = open("./certs/server%d.pem"%i, "r").read() 
+            self.server_pubkeys.append(PKCS1_v1_5.new(RSA.importKey(key)))
+        self.client_pubkeys=[]
+        for i in xrange(0, 2):
+            key = open("./certs/client%d.pem"%i, "r").read() 
+            self.client_pubkeys.append(PKCS1_v1_5.new(RSA.importKey(key)))
 
     def change_view(self):
         print "timed out: %d"%self.view
@@ -89,7 +89,10 @@ class BFT2F_Node(DatagramProtocol):
         #TODO check node state.
         #If it's in view change, ignore everything other than new-view
 
-        #if not self.verify_sig(msg.sig):
+        #signature verify
+        # signature = msg.sig
+        # msg.sig = ""
+        # if not verify_func(signer,signature,msg.SerializeToString()):
         #    return
         if msg.msg_type == BFT2F_MESSAGE.REQUEST:
             print "Recieved a REQUEST"
@@ -165,7 +168,8 @@ class BFT2F_Node(DatagramProtocol):
                               node_id=self.node_id,
                               view=self.view,
                               n=msg.n,
-                              req_D=msg.req_D)
+                              req_D=msg.req_D,
+                              sig="")
         p_msg.sig = self.sign_func(p_msg.SerializeToString())
 
         self.highest_accepted_n = msg.n
@@ -186,7 +190,8 @@ class BFT2F_Node(DatagramProtocol):
                                                  n=msg.n,
                                                  hcd=self.T[-1])      
             c_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.COMMIT,
-                                  version=self.V[self.node_id])
+                                  version=self.V[self.node_id],
+                                  sig="")
 
             c_msg.sig=self.sign_func(c_msg.SerializeToString())
             self.send_multicast(c_msg)
@@ -203,7 +208,8 @@ class BFT2F_Node(DatagramProtocol):
                                   client_id=r_msg.client_id,
                                   ts=r_msg.ts,
                                   res=res,
-                                  version=self.V[msg.node_id])
+                                  version=self.V[msg.node_id],
+                                  sig="")
             rp_msg.sig = self.sign_func(r_msg.SerializeToString())
             self.ReplayCache[r_msg.client_id]=rp_msg
             print "replying to %s %s" % (client_id, PORT)
@@ -225,29 +231,27 @@ class BFT2F_Node(DatagramProtocol):
         self.transport.write(msg.SerializeToString(), (MULTICAST_ADDR, PORT))
 
     def digest_func(self, data):
-        return ""
+        #return ""
         digest = SHA256.new()
-        digest.update(b64decode(data))  
+        digest.update(data)  
         return b64encode(digest.digest())
 
-    def verify_func(self, signature, data):
+    def verify_func(self, signer, signature, data):
         # rsakey = RSA.importKey(pub_key) 
         # signer = PKCS1_v1_5.new(rsakey) 
         digest = SHA256.new() 
-        digest.update(b64decode(data)) 
-        #if signer.verify(digest, b64decode(signature)):
-        if signer.verify(digest, signature):
+        digest.update(data) 
+        if signer.verify(digest, b64decode(signature)):
             return True
         return False
 
     def sign_func(self, data):
-        return ""
+        #return ""
         digest = SHA256.new()
-        digest.update(b64decode(data)) 
+        digest.update(data) 
         sign = self.private_key.sign(digest) 
-        #return b64encode(sign)
-        print "sign : %s"%sign
-        return sign
+        #print "sign : %s"%sign
+        return b64encode(sign)
 
 # We use listenMultiple=True so that we can run MulticastServer.py and
 # MulticastClient.py on same machine:
