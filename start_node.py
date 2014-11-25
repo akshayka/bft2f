@@ -67,10 +67,10 @@ class BFT2F_Node(DatagramProtocol):
     def change_view(self):
         print "timed out: %d"%self.view
         sys.stdout.flush()
-	self.state=NodeState.ViewChange
-	#TODO send view change request
-	self.timer = Timer(VIEW_TIMEOUT,self.change_view,args=[])
-	self.timer.start()
+        self.state=NodeState.ViewChange
+        #TODO send view change request
+        self.timer = Timer(VIEW_TIMEOUT,self.change_view,args=[])
+        self.timer.start()
 
     def startProtocol(self):
         """
@@ -88,7 +88,15 @@ class BFT2F_Node(DatagramProtocol):
         msg.ParseFromString(datagram)
         #TODO check node state.
         #If it's in view change, ignore everything other than new-view
+        if self.state==NodeState.ViewChange:
+            if msg.msg_type == BFT2F_MESSAGE.NEW_VIEW:
+                handle_new_view(self, msg, address)
+            elif msg.msg_type == BFT2F_MESSAGE.VIEW_CHANGE:
+                handle_view_change(self, msg, address)
+            else:
+                return
 
+        #TODO get signer from pubkey arrays
         #signature verify
         # signature = msg.sig
         # msg.sig = ""
@@ -118,6 +126,10 @@ class BFT2F_Node(DatagramProtocol):
 
         sys.stdout.flush()
         
+    def handle_new_view(self, msg, address):
+        pass
+    def handle_view_change(self, msg, address):
+        pass
     def handle_request(self, msg, address):
         last_rep_entry = self.ReplayCache.get(msg.client_id)
         if last_rep_entry:
