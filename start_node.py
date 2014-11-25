@@ -86,15 +86,6 @@ class BFT2F_Node(DatagramProtocol):
     def datagramReceived(self, datagram, address):
         msg = BFT2F_MESSAGE()
         msg.ParseFromString(datagram)
-        #TODO check node state.
-        #If it's in view change, ignore everything other than new-view
-        if self.state==NodeState.ViewChange:
-            if msg.msg_type == BFT2F_MESSAGE.NEW_VIEW:
-                handle_new_view(self, msg, address)
-            elif msg.msg_type == BFT2F_MESSAGE.VIEW_CHANGE:
-                handle_view_change(self, msg, address)
-            else:
-                return
 
         #TODO get signer from pubkey arrays
         #signature verify
@@ -105,12 +96,22 @@ class BFT2F_Node(DatagramProtocol):
             signature = msg.sig
             msg.sig = ""
             if not self.verify_func(signer,signature,msg.SerializeToString()):
-                print "wrong signature"
+                print "wrong signature : %d :"%msg.node_id, msg.msg_type
                 sys.stdout.flush()
                 return
             else:
                 print "valid signature"
                 sys.stdout.flush()
+
+        #TODO check node state.
+        #If it's in view change, ignore everything other than new-view
+        if self.state==NodeState.ViewChange:
+            if msg.msg_type == BFT2F_MESSAGE.NEW_VIEW:
+                handle_new_view(self, msg, address)
+            elif msg.msg_type == BFT2F_MESSAGE.VIEW_CHANGE:
+                handle_view_change(self, msg, address)
+            else:
+                return
         if msg.msg_type == BFT2F_MESSAGE.REQUEST:
             print "Recieved a REQUEST"
             sys.stdout.flush()
@@ -210,10 +211,10 @@ class BFT2F_Node(DatagramProtocol):
                                                  view=self.view,
                                                  n=msg.n,
                                                  hcd=self.T[-1])      
-            c_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.COMMIT,
-                                  version=self.V[self.node_id],
-                                  sig="")
-
+            c_msg = BFT2F_MESSAGE(node_id=self.node_id,
+                                msg_type=BFT2F_MESSAGE.COMMIT,
+                                version=self.V[self.node_id],
+                                sig="")
             c_msg.sig=self.sign_func(c_msg.SerializeToString())
             self.send_multicast(c_msg)
 
@@ -252,13 +253,10 @@ class BFT2F_Node(DatagramProtocol):
         self.transport.write(msg.SerializeToString(), (MULTICAST_ADDR, PORT))
 
     def digest_func(self, data):
-        #return ""
         digest = SHA.new(data)
         return b64encode(digest.digest())
 
     def verify_func(self, signer, signature, data):
-        # rsakey = RSA.importKey(pub_key) 
-        # signer = PKCS1_v1_5.new(rsakey) 
         digest = SHA.new(data) 
         if signer.verify(digest, b64decode(signature)):
             return True
@@ -268,11 +266,7 @@ class BFT2F_Node(DatagramProtocol):
         #return ""
         digest = SHA.new(data)
         sign = self.private_key.sign(digest) 
-        #print "sign : %s"%sign
         return b64encode(sign)
-
-# We use listenMultiple=True so that we can run MulticastServer.py and
-# MulticastClient.py on same machine:
 
 def main():
 	parser = ArgumentParser()
