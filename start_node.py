@@ -98,10 +98,19 @@ class BFT2F_Node(DatagramProtocol):
 
         #TODO get signer from pubkey arrays
         #signature verify
-        # signature = msg.sig
-        # msg.sig = ""
-        # if not verify_func(signer,signature,msg.SerializeToString()):
-        #    return
+        if msg.msg_type == BFT2F_MESSAGE.REQUEST:
+            signer = self.client_pubkeys[0]
+        else:
+            signer = self.server_pubkeys[msg.node_id]
+            signature = msg.sig
+            msg.sig = ""
+            if not self.verify_func(signer,signature,msg.SerializeToString()):
+                print "wrong signature"
+                sys.stdout.flush()
+                return
+            else:
+                print "valid signature"
+                sys.stdout.flush()
         if msg.msg_type == BFT2F_MESSAGE.REQUEST:
             print "Recieved a REQUEST"
             sys.stdout.flush()
