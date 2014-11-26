@@ -13,12 +13,14 @@ from Crypto.Signature import PKCS1_v1_5
 from Crypto.Hash import SHA 
 from base64 import b64encode, b64decode
 
-#constants
 MULTICAST_ADDR = "228.0.0.5"
 PORT = 8005
 F = 2
 VIEW_TIMEOUT = 2
-CHECKPOINT_INTERVAL = 128
+CHECKPOINT_INTERVAL = 100
+# must be greater than CHECKPOINT_INTERVAL
+WATER_MARK_DELTA = CHECKPOINT_INTERVAL * 2
+
 CacheEntry = namedtuple('CacheEntry', 'req rep')
 
 class NodeState():
@@ -26,18 +28,31 @@ class NodeState():
     VIEW_CHANGE=2
 
 class BFT2F_Node(DatagramProtocol):
+    # TODO J raises a good point below -- what if the node is coming up after
+    # an outage? We'll have to run a protocol that allows this node to determine
+    # the current state. -A
     def __init__(self, node_id):
         self.node_id = node_id
         self.state = NodeState.NORMAL
         self.view = 0
         self.replay_cache = {}
-        self.primary = 0 # h0 always starts as primary
+
+        # h0 always starts as primary
+        # TODO change after (during?) view change -A
+        self.primary = 0
         self.highest_accepted_n = 0
+
+        # only accept prepare, commit messages with sequence numbers between
+        # low_water_mark and high_water_mark
+        #
+        # invariant: low_water_mark == highest sequence number in last checkpoint
+        self.low_water_mark = 0
+        self.high_water_mark = self.low_water_mark + WATER_MARK_DELTA
 
         # messages received directly from the client
         self.request_msgs = {}
 
-        # map sequence number to single prepare msg
+        # map sequence number to single pre_prepare msg
         #
         # the request carried by prepare for sequence number n must match
         # the request carried by pre_prepare_msgs[n]
@@ -47,13 +62,14 @@ class BFT2F_Node(DatagramProtocol):
         #
         # we collect 2f + 1 prepares for each sequence number,
         # and we refer to this dictionary when constructing the set P during
-        # a view change
+        # a view change; only needs to contain uncommitted msgs
         self.prepare_msgs = {}
 
         # map sequence number to bag of commit msgs
         #
         # a bag of 2f + 1 commit messages for a given sequence number provides
-        # proof that the particular sequence number committed.
+        # proof that the particular sequence number committed;
+        # used during view changes and fast-forwards
         self.commit_msgs = {}
         
         # hash chain digest history
@@ -66,8 +82,9 @@ class BFT2F_Node(DatagramProtocol):
         self.kv_store = {}
         self.client_addr = {}
 
-        #Version init
+        # version vector init
         self.V = [None] * (3 * F + 1)
+
         #TODO what if it's restored from temporal outage?
         #I guess we may need some protocol to ask around using multicast -J
         for i in xrange(0, 3 * F + 1):
@@ -204,11 +221,12 @@ class BFT2F_Node(DatagramProtocol):
         #cancel timeout if any
         self.timer.cancel()
 
-        if msg.req_D not in self.request_msgs or\
-                self.view != msg.view or\
-                msg.n > self.highest_accepted_n + 10 or\
-                (self.pre_prepare_msgs.get(msg.n) != msg and\
-                     self.pre_prepare_msgs.get(msg.n)):
+        if msg.n < self.low_water_mark or\
+           msg.n > self.high_water_mark or\
+           msg.req_D not in self.request_msgs or\
+           self.view != msg.view or\
+           (self.pre_prepare_msgs.get(msg.n) != msg and\
+                self.pre_prepare_msgs.get(msg.n)):
             print "ignore"
             sys.stdout.flush()
             return;
@@ -228,7 +246,9 @@ class BFT2F_Node(DatagramProtocol):
         return
 
     def handle_prepare(self, msg, address):        
-        if msg in self.prepare_msgs.setdefault(msg.n, []):
+        if msg.n < self.low_water_mark or\
+           msg.n > self.high_water_mark or\
+           msg in self.prepare_msgs.setdefault(msg.n, []):
             return
         
         self.prepare_msgs[msg.n].append(msg)
@@ -249,6 +269,11 @@ class BFT2F_Node(DatagramProtocol):
 
     def handle_commit(self, msg, address):
         #TODO check if HCD is valid
+
+        if msg.n < self.low_water_mark or\
+           msg.n > self.high_water_mark:
+            return
+
         self.V[msg.version.node_id] = msg.version
         if len([v for v in self.V if self.versions_match(v, msg.version)]) == 2*F + 1:
             r_msg = self.request_msgs[self.pre_prepare_msgs[msg.version.n].req_D]
@@ -306,5 +331,6 @@ def main():
 
 	reactor.listenMulticast(PORT, BFT2F_Node(args.node_id), listenMultiple=True)
 	reactor.run()
+
 if __name__ == '__main__':
 	main()
