@@ -178,13 +178,9 @@ class BFT2F_Node(DatagramProtocol):
             print "Recieved a NEW_VIEW"
         elif msg.msg_type == BFT2F_MESSAGE.CHECKPOINT:
             print "Recieved a CHECKPOINT"
-
+            self.handle_checkpoint(msg, address)
         sys.stdout.flush()
         
-    def handle_new_view(self, msg, address):
-        pass
-    def handle_view_change(self, msg, address):
-        pass
     def handle_request(self, msg, address):
         last_rep_entry = self.replay_cache.get(msg.client_id)
         if last_rep_entry:
@@ -264,7 +260,6 @@ class BFT2F_Node(DatagramProtocol):
             c_msg.sig=self.sign_func(c_msg.SerializeToString())
             self.send_multicast(c_msg)
 
-
     def handle_commit(self, msg, address):
         #TODO check if HCD is valid
 
@@ -288,11 +283,33 @@ class BFT2F_Node(DatagramProtocol):
             print "replying to %s %s" % (client_id, PORT)
             self.send_msg(rp_msg, self.client_addr[client_id])
 
+            # TODO According to the original paper, we generate
+            # a checkpoint 'when a request with a sequence number divisible
+            # by some constant is executed.' But what if the primary is an adversary
+            # and always skips such sequence numbers? -A
+            if msg.n % CHECKPOINT_INTERVAL == 0:
+                print 'CHECK %d' % msg.n
+                self.make_checkpoint(msg.n)
+
+    # TODO -A
+    def handle_checkpoint(self, msg, address):
+        pass
+
+    def handle_view_change(self, msg, address):
+        pass
+
+    def handle_new_view(self, msg, address):
+        pass
+
     def execute_op(self, op):
         #TODO tokens
         if op.type == BFT2F_OP.PUT:
             self.kv_store[op.key] = op.val
         return self.kv_store[op.key]
+
+    # TODO -A
+    def make_checkpoint(self, n):
+        pass
 
     def seqno_in_bounds(self, n):
         return n >= self.low_water_mark and n <= self.high_water_mark
