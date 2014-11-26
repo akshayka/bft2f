@@ -66,13 +66,17 @@ def main():
     sleep(1)
     start_client(net)
     endTime = time() + RUN_DURATION
+    num_processes = len(popens)
+    num_term = 0
     for h, line in pmonitor(popens, timeoutms=500):
+        if num_term == num_processes:
+            break
         if h:
             print '%s: %s' % ( h.name, line ),
         if time() >= endTime:
            for p in popens.values():
-              p.send_signal( SIGINT )
-
+              num_term = num_term + 1
+              p.send_signal(SIGNINT)
     net.stop()
 
 if __name__ == '__main__':

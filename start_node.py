@@ -213,6 +213,7 @@ class BFT2F_Node(DatagramProtocol):
         self.timer = Timer(VIEW_TIMEOUT,self.change_view,args=[])
         self.timer.start()
 
+    # pre_prepare: <node-id, view, n, D(msg_n)>
     def handle_pre_prepare(self, msg, address):
         #cancel timeout if any
         self.timer.cancel()
@@ -240,6 +241,7 @@ class BFT2F_Node(DatagramProtocol):
 
         return
 
+    # prepare: <node-id, view, n, D(msg_n)>
     def handle_prepare(self, msg, address):        
         if (not self.seqno_in_bounds(msg.n)) or\
            msg in self.prepare_msgs.setdefault(msg.n, []):
@@ -248,22 +250,23 @@ class BFT2F_Node(DatagramProtocol):
         self.prepare_msgs[msg.n].append(msg)
         if len(self.prepare_msgs[msg.n]) == 2 * F + 1:
             r_msg = self.request_msgs[msg.req_D]
-            self.T.append(self.digest_func(self.digest_func(r_msg.SerializeToString()) + self.T[-1]))
+            self.T.append(self.make_hcd(r_msg))
             self.V[self.node_id] = BFT2F_VERSION(node_id=self.node_id,
                                                  view=self.view,
                                                  n=msg.n,
                                                  hcd=self.T[-1])      
             c_msg = BFT2F_MESSAGE(node_id=self.node_id,
-                                msg_type=BFT2F_MESSAGE.COMMIT,
-                                version=self.V[self.node_id],
-                                sig="")
+                                  msg_type=BFT2F_MESSAGE.COMMIT,
+                                  version=self.V[self.node_id],
+                                  sig="")
             c_msg.sig=self.sign_func(c_msg.SerializeToString())
             self.send_multicast(c_msg)
 
+    # commit: < version-vector-entry >
     def handle_commit(self, msg, address):
         #TODO check if HCD is valid
 
-        if not self.seqno_in_bounds(msg.n):
+        if not self.seqno_in_bounds(msg.version.n):
             return
 
         self.V[msg.version.node_id] = msg.version
@@ -287,11 +290,12 @@ class BFT2F_Node(DatagramProtocol):
             # a checkpoint 'when a request with a sequence number divisible
             # by some constant is executed.' But what if the primary is an adversary
             # and always skips such sequence numbers? -A
-            if msg.n % CHECKPOINT_INTERVAL == 0:
-                print 'CHECK %d' % msg.n
-                self.make_checkpoint(msg.n)
+            if msg.version.n % CHECKPOINT_INTERVAL == 0:
+                self.make_checkpoint(msg.version.n)
 
     # TODO -A
+    # checkpoint: < node-id, n, D(state), D(rcache),
+    #               [something that conveys forkset] >
     def handle_checkpoint(self, msg, address):
         pass
 
@@ -300,6 +304,10 @@ class BFT2F_Node(DatagramProtocol):
 
     def handle_new_view(self, msg, address):
         pass
+
+    def make_hcd(self, msg):
+        return self.digest_func(self.digest_func(msg.SerializeToString()) +
+                                                 self.T[-1])
 
     def execute_op(self, op):
         #TODO tokens
