@@ -7,7 +7,6 @@ from collections import namedtuple
 import inspect
 
 from threading import Timer
-#from enum import Enum
 
 from Crypto.PublicKey import RSA 
 from Crypto.Signature import PKCS1_v1_5 
@@ -38,6 +37,8 @@ class BFT2F_Node(DatagramProtocol):
         self.prepare_msgs = {}
         self.T = [""] # start with emtpy HCD
         self.kv_store = {}
+        self.client_addr = {}
+
         #Version init
         self.V = [None] * (3 * F + 1)
         #TODO what if it's retored from temporal outage?
@@ -87,21 +88,21 @@ class BFT2F_Node(DatagramProtocol):
         msg = BFT2F_MESSAGE()
         msg.ParseFromString(datagram)
 
-        #TODO get signer from pubkey arrays
-        #signature verify
+        #signature verification
         if msg.msg_type == BFT2F_MESSAGE.REQUEST:
-            signer = self.client_pubkeys[0]
+            self.client_addr[msg.client_id]=address
+            signer = self.client_pubkeys[msg.client_id]
         else:
             signer = self.server_pubkeys[msg.node_id]
-            signature = msg.sig
-            msg.sig = ""
-            if not self.verify_func(signer,signature,msg.SerializeToString()):
-                print "wrong signature : %d :"%msg.node_id, msg.msg_type
-                sys.stdout.flush()
-                return
-            else:
-                print "valid signature"
-                sys.stdout.flush()
+        signature = msg.sig
+        msg.sig = ""
+        if not self.verify_func(signer,signature,msg.SerializeToString()):
+            print "wrong signature : %d :"%msg.node_id, msg.msg_type
+            sys.stdout.flush()
+            return
+        else:
+            print "valid signature"
+            sys.stdout.flush()
 
         #TODO check node state.
         #If it's in view change, ignore everything other than new-view
@@ -228,6 +229,7 @@ class BFT2F_Node(DatagramProtocol):
             client_id = r_msg.client_id
             rp_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.REPLY,
                                   client_id=r_msg.client_id,
+                                  node_id=self.node_id,
                                   ts=r_msg.ts,
                                   res=res,
                                   version=self.V[msg.node_id],
@@ -235,7 +237,7 @@ class BFT2F_Node(DatagramProtocol):
             rp_msg.sig = self.sign_func(rp_msg.SerializeToString())
             self.ReplayCache[r_msg.client_id]=rp_msg
             print "replying to %s %s" % (client_id, PORT)
-            self.send_msg(rp_msg, (client_id, PORT))
+            self.send_msg(rp_msg, self.client_addr[client_id])
 
     def execute_op(self, op):
         #TODO tokens
@@ -272,7 +274,7 @@ def main():
 	parser = ArgumentParser()
 	parser.add_argument('--node_id', '-n',
                             type=long,
-                            required=False)
+                            required=True)
 	args = parser.parse_args()
 
 	reactor.listenMulticast(PORT, BFT2F_Node(args.node_id), listenMultiple=True)
