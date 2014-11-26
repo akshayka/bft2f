@@ -18,30 +18,57 @@ MULTICAST_ADDR = "228.0.0.5"
 PORT = 8005
 F = 2
 VIEW_TIMEOUT = 2
+CHECKPOINT_INTERVAL = 128
 CacheEntry = namedtuple('CacheEntry', 'req rep')
 
 class NodeState():
-    Normal=1
-    ViewChange=2
+    NORMAL=1
+    VIEW_CHANGE=2
 
 class BFT2F_Node(DatagramProtocol):
     def __init__(self, node_id):
         self.node_id = node_id
-        self.state=NodeState.Normal
+        self.state = NodeState.NORMAL
         self.view = 0
-        self.ReplayCache = {}
+        self.replay_cache = {}
         self.primary = 0 # h0 always starts as primary
         self.highest_accepted_n = 0
+
+        # messages received directly from the client
         self.request_msgs = {}
+
+        # map sequence number to single prepare msg
+        #
+        # the request carried by prepare for sequence number n must match
+        # the request carried by pre_prepare_msgs[n]
         self.pre_prepare_msgs = {}
+
+        # map sequence number to bag of prepare msgs
+        #
+        # we collect 2f + 1 prepares for each sequence number,
+        # and we refer to this dictionary when constructing the set P during
+        # a view change
         self.prepare_msgs = {}
-        self.T = [""] # start with emtpy HCD
+
+        # map sequence number to bag of commit msgs
+        #
+        # a bag of 2f + 1 commit messages for a given sequence number provides
+        # proof that the particular sequence number committed.
+        self.commit_msgs = {}
+        
+        # hash chain digest history
+        #
+        # referred to when checking the fork set of a client's message,
+        # and when checking domination ordering between two versions
+        # during a view change
+        self.T = [""]
+
         self.kv_store = {}
         self.client_addr = {}
 
         #Version init
         self.V = [None] * (3 * F + 1)
-        #TODO what if it's retored from temporal outage?
+        #TODO what if it's restored from temporal outage?
         #I guess we may need some protocol to ask around using multicast -J
         for i in xrange(0, 3 * F + 1):
             self.V[i] = BFT2F_VERSION(node_id=i,
@@ -68,7 +95,7 @@ class BFT2F_Node(DatagramProtocol):
     def change_view(self):
         print "timed out: %d"%self.view
         sys.stdout.flush()
-        self.state=NodeState.ViewChange
+        self.state=NodeState.VIEW_CHANGE
         #TODO send view change request
         self.timer = Timer(VIEW_TIMEOUT,self.change_view,args=[])
         self.timer.start()
@@ -106,7 +133,7 @@ class BFT2F_Node(DatagramProtocol):
 
         #TODO check node state.
         #If it's in view change, ignore everything other than new-view
-        if self.state==NodeState.ViewChange:
+        if self.state==NodeState.VIEW_CHANGE:
             if msg.msg_type == BFT2F_MESSAGE.NEW_VIEW:
                 handle_new_view(self, msg, address)
             elif msg.msg_type == BFT2F_MESSAGE.VIEW_CHANGE:
@@ -142,7 +169,7 @@ class BFT2F_Node(DatagramProtocol):
     def handle_view_change(self, msg, address):
         pass
     def handle_request(self, msg, address):
-        last_rep_entry = self.ReplayCache.get(msg.client_id)
+        last_rep_entry = self.replay_cache.get(msg.client_id)
         if last_rep_entry:
             if last_rep_entry.req.ts < msg.ts:
                 return
@@ -167,7 +194,7 @@ class BFT2F_Node(DatagramProtocol):
             print "sending"
             sys.stdout.flush()
 
-        self.ReplayCache[msg.client_id] = CacheEntry(req=msg, rep=None)
+        self.replay_cache[msg.client_id] = CacheEntry(req=msg, rep=None)
         self.request_msgs[self.digest_func(msg.SerializeToString())] = msg
         #start timeout for view change
         self.timer = Timer(VIEW_TIMEOUT,self.change_view,args=[])
@@ -235,7 +262,7 @@ class BFT2F_Node(DatagramProtocol):
                                   version=self.V[msg.node_id],
                                   sig="")
             rp_msg.sig = self.sign_func(rp_msg.SerializeToString())
-            self.ReplayCache[r_msg.client_id]=rp_msg
+            self.replay_cache[r_msg.client_id]=rp_msg
             print "replying to %s %s" % (client_id, PORT)
             self.send_msg(rp_msg, self.client_addr[client_id])
 
