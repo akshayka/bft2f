@@ -221,8 +221,7 @@ class BFT2F_Node(DatagramProtocol):
         #cancel timeout if any
         self.timer.cancel()
 
-        if msg.n < self.low_water_mark or\
-           msg.n > self.high_water_mark or\
+        if (not self.seqno_in_bounds(msg.n)) or\
            msg.req_D not in self.request_msgs or\
            self.view != msg.view or\
            (self.pre_prepare_msgs.get(msg.n) != msg and\
@@ -246,8 +245,7 @@ class BFT2F_Node(DatagramProtocol):
         return
 
     def handle_prepare(self, msg, address):        
-        if msg.n < self.low_water_mark or\
-           msg.n > self.high_water_mark or\
+        if (not self.seqno_in_bounds(msg.n)) or\
            msg in self.prepare_msgs.setdefault(msg.n, []):
             return
         
@@ -270,8 +268,7 @@ class BFT2F_Node(DatagramProtocol):
     def handle_commit(self, msg, address):
         #TODO check if HCD is valid
 
-        if msg.n < self.low_water_mark or\
-           msg.n > self.high_water_mark:
+        if not self.seqno_in_bounds(msg.n):
             return
 
         self.V[msg.version.node_id] = msg.version
@@ -296,6 +293,9 @@ class BFT2F_Node(DatagramProtocol):
         if op.type == BFT2F_OP.PUT:
             self.kv_store[op.key] = op.val
         return self.kv_store[op.key]
+
+    def seqno_in_bounds(self, n):
+        return n >= self.low_water_mark and n <= self.high_water_mark
 
     def versions_match(self, v1, v2):
         return (v1.view == v2.view) and (v1.n == v2.n) and (v1.hcd == v2.hcd)
