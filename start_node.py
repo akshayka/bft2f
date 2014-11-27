@@ -12,6 +12,7 @@ from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5 
 from Crypto.Hash import SHA 
 from base64 import b64encode, b64decode
+import cPickle
 
 MULTICAST_ADDR = "228.0.0.5"
 PORT = 8005
@@ -22,6 +23,7 @@ CHECKPOINT_INTERVAL = 100
 WATER_MARK_DELTA = CHECKPOINT_INTERVAL * 2
 
 CacheEntry = namedtuple('CacheEntry', 'req rep')
+Checkpoint = namedtuple('Checkpoint', 'kv_store hcd V replay_cache')
 
 class NodeState():
     NORMAL=1
@@ -31,6 +33,8 @@ class BFT2F_Node(DatagramProtocol):
     # TODO J raises a good point below -- what if the node is coming up after
     # an outage? We'll have to run a protocol that allows this node to determine
     # the current state. -A
+    # TODO should state be logged to disk? e.g. the message log.
+    # PBFT uses memory-mapped files that are asynchronously written to disk -A
     def __init__(self, node_id):
         self.node_id = node_id
         self.state = NodeState.NORMAL
@@ -108,6 +112,9 @@ class BFT2F_Node(DatagramProtocol):
         for i in xrange(0, 2):
             key = open("./certs/client%d.pem"%i, "r").read() 
             self.client_pubkeys.append(PKCS1_v1_5.new(RSA.importKey(key)))
+
+        # map sequence number to pending checkpoints
+        self.pending_checkpoints = {}
 
     def change_view(self):
         print "timed out: %d"%self.view
@@ -294,9 +301,10 @@ class BFT2F_Node(DatagramProtocol):
                 self.make_checkpoint(msg.version.n)
 
     # TODO -A
-    # checkpoint: < node-id, n, D(state), D(rcache),
-    #               [something that conveys forkset] >
+    # checkpoint: < node-id, n, D(state), D(rcache) >
     def handle_checkpoint(self, msg, address):
+        # collect 2f + 1 checkpoint messages for a given sequence number
+        # these messages prove that a checkpoint is stable
         pass
 
     def handle_view_change(self, msg, address):
@@ -315,8 +323,20 @@ class BFT2F_Node(DatagramProtocol):
             self.kv_store[op.key] = op.val
         return self.kv_store[op.key]
 
-    # TODO -A
     def make_checkpoint(self, n):
+        hcd_n = self.T[n]
+        self.pending_checkpoints[n] = Checkpoint(kv_store=self.kv_store,
+                                                 hcd=hcd_n,
+                                                 V=self.V,
+                                                 replay_cache=self.replay_cache)
+        ck_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.CHECKPOINT,
+                              node_id=self.node_id,
+                              n=n,
+                              state_D=self.digest_func(str(self.kv_store) + hcd_n),
+                              replay_cache_D=self.digest_func(str(self.replay_cache)),
+                              sig="")
+        ck_msg.sig = self.sign_func(ck_msg.SerializeToString())
+        self.send_multicast(ck_msg)
         pass
 
     def seqno_in_bounds(self, n):

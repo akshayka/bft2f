@@ -40,6 +40,8 @@ message BFT2F_MESSAGE {
   optional string req_D = 10;
   repeated BFT2F_MESSAGE_LIST P = 11;
   optional string res = 12;
+  optional string state_D = 13;
+  optional string replay_cache_D = 14;
 
 }
 
