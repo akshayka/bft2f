@@ -65,6 +65,7 @@ class BFT2F_Client(DatagramProtocol):
         self.transport.write(msg.SerializeToString(), (MULTICAST_ADDR, PORT))
 
     def bft2f_get(self, key):
+        pass
 
     def datagramReceived(self, datagram, address):
         #print "Datagram %s received from %s" % (repr(datagram), repr(address))

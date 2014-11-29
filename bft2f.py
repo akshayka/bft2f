@@ -77,7 +77,7 @@ def main():
         if time() >= endTime:
            for p in popens.values():
               num_term = num_term + 1
-              p.send_signal(SIGNINT)
+              p.send_signal(SIGINT)
     net.stop()
 
 if __name__ == '__main__':

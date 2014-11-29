@@ -374,7 +374,8 @@ class BFT2F_Node(DatagramProtocol):
             # if 2F + 1
             #   save to disk
             #   truncate old state, forget old checkpoint
-        pass
+                raise NotImplementedError('Checkpoints not finished!')
+        raise NotImplementedError('Checkpoints not finished!')
 
     def handle_view_change(self, msg, address):
         # IF node is new primary
@@ -413,7 +414,7 @@ class BFT2F_Node(DatagramProtocol):
             return
 
         V, O = self.generate_V_and_O(self.view_change_msgs)
-        if(V and O)
+        if V and O:
             nv_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.NEW_VIEW,
                                    node_id=self.node_id,
                                    view=self.view + 1,
