@@ -2,8 +2,8 @@ message BFT2F_VERSION {
   required int64 node_id = 1;
   required int64 view = 2;
   required int64 n = 3;
-  required string hcd = 4;
-  required string sig = 5;
+  optional string hcd = 4;
+  optional string sig = 5;
 }
 
 message BFT2F_OP {

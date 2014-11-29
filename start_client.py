@@ -45,14 +45,19 @@ class BFT2F_Client(DatagramProtocol):
         # Send to 228.0.0.5:8005 - all listeners on the multicast address
         # (including us) will receive this message.
         # send commit
-        sleep(25)
-        print "send again"
-        sys.stdout.flush()
+        # TODO: Make this correct -A
+        msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.REQUEST,
+                            op=BFT2F_OP(type=BFT2F_OP.PUT, key='hello', val='hi'),
+                            ts=1,
+                            client_id=self.client_id,
+                            version=BFT2F_VERSION(node_id=0, view=0, n=0, hcd=""),
+                            sig='')
+        msg.sig = self.sign_func(msg.SerializeToString())
         self.transport.write(msg.SerializeToString(), (MULTICAST_ADDR, PORT))
-
-        
-        
-        sys.stdout.flush()
+        #sleep(25)
+        #print "send again"
+        #sys.stdout.flush()
+        #self.transport.write(msg.SerializeToString(), (MULTICAST_ADDR, PORT))
 
     def bft2f_put(self, key, val):
         msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.REQUEST,

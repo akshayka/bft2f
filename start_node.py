@@ -17,7 +17,7 @@ import cPickle
 MULTICAST_ADDR = "228.0.0.5"
 PORT = 8005
 F = 2
-VIEW_TIMEOUT = 2
+VIEW_TIMEOUT = 8
 CHECKPOINT_INTERVAL = 100
 # must be greater than CHECKPOINT_INTERVAL
 WATER_MARK_DELTA = CHECKPOINT_INTERVAL * 2
@@ -31,7 +31,6 @@ class NodeState():
     NORMAL=1
     VIEW_CHANGE=2
 
-
 class BFT2F_Node(DatagramProtocol):
     # TODO J raises a good point below -- what if the node is coming up after
     # an outage? We'll have to run a protocol that allows this node to determine
@@ -44,9 +43,6 @@ class BFT2F_Node(DatagramProtocol):
         self.view = 0
         self.replay_cache = {}
 
-        # h0 always starts as primary
-        # TODO change after (during?) view change -A
-        self.primary = 0
         self.highest_accepted_n = 0
 
         # only accept prepare, commit messages with sequence numbers between
@@ -139,23 +135,25 @@ class BFT2F_Node(DatagramProtocol):
         self.checkpoint_proofs = {}
 
     def change_view(self):
-        print "timed out: %d"%self.V[self.node_id].view
+        print "timed out: %d" % self.V[self.node_id].view
         sys.stdout.flush()
         self.state=NodeState.VIEW_CHANGE
-        #TODO send view change request
         P = []
         for n, pp_msg in self.pre_prepare_msgs.items():
-            if n > self.V[self.node_id].n:
-                if len(self.prepare_msgs.get(msg.n, [])) >= 2 * F + 1:
-                    P.append([pp_msg] + self.prepare_msgs[n])        
-        vh_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.VIEW_CHANGE,
+            # If I've prepared but not committed ...
+            if n > self.V[self.node_id].n and\
+               len(self.prepare_msgs.get(n, [])) >= 2 * F + 1:
+                P.append([pp_msg] + self.prepare_msgs[n])        
+
+        vc_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.VIEW_CHANGE,
                                node_id=self.node_id,
                                view=self.view + 1,
                                version=self.V[self.node_id],
                                P=P,
                                sig="")
-        vh_msg.sig = self.sign_func(vh_msg.SerializeToString())
-        self.send_multicast(vh_msg)
+        vc_msg.sig = self.sign_func(vc_msg.SerializeToString())
+        self.send_multicast(vc_msg)
+
         # TODO in case there is another timer
         self.timer = Timer(VIEW_TIMEOUT,self.change_view,args=[])
         self.timer.start()
@@ -194,19 +192,19 @@ class BFT2F_Node(DatagramProtocol):
             print "valid signature"
             sys.stdout.flush()
 
-        if msg.msg_type == BFT2F_MESSAGE.REQUEST and self.state == NodeState.Normal:
+        if msg.msg_type == BFT2F_MESSAGE.REQUEST and self.state == NodeState.NORMAL:
             print "Recieved a REQUEST"
             sys.stdout.flush()
             self.handle_request(msg, address)
-        elif msg.msg_type == BFT2F_MESSAGE.PRE_PREPARE and self.state == NodeState.Normal:
+        elif msg.msg_type == BFT2F_MESSAGE.PRE_PREPARE and self.state == NodeState.NORMAL:
             print "Recieved a PRE_PREPARE"
             sys.stdout.flush()            
             self.handle_pre_prepare(msg)
-        elif msg.msg_type == BFT2F_MESSAGE.PREPARE and self.state == NodeState.Normal:
+        elif msg.msg_type == BFT2F_MESSAGE.PREPARE and self.state == NodeState.NORMAL:
             print "Recieved a PREPARE"
             sys.stdout.flush()
-            self.handle_prepare(msg, address)
-        elif msg.msg_type == BFT2F_MESSAGE.COMMIT and self.state == NodeState.Normal:
+            self.handle_prepare(msg)
+        elif msg.msg_type == BFT2F_MESSAGE.COMMIT and self.state == NodeState.NORMAL:
             print "Recieved a COMMIT"
             self.handle_commit(msg, address)
         elif msg.msg_type == BFT2F_MESSAGE.VIEW_CHANGE:
@@ -260,9 +258,9 @@ class BFT2F_Node(DatagramProtocol):
         self.timer.start()
 
     # pre_prepare: <node-id, view, n, D(msg_n)>
-    def handle_pre_prepare(self, msg, address):
+    def handle_pre_prepare(self, msg):
         #cancel timeout if any
-        if self.node_id != self.primary():
+        if self.node_id != self.primary(self.view):
             return
 
         if (not self.seqno_in_bounds(msg.n)) or\
@@ -379,18 +377,26 @@ class BFT2F_Node(DatagramProtocol):
 
     def handle_view_change(self, msg, address):
         # IF node is new primary
-        print msg
-
         if self.primary(msg.view) == self.node_id:
+            print 'Got view change!'
+            sys.stdout.flush()
             if not self.valid_P(msg.P):
+                print 'Invalid p!'
+                sys.stdout.flush()
                 return
-            p_version = self.V[self.node_id]                        
+            p_version = self.V[self.node_id]
             if self.valid_view_change(msg):
+                print 'Updating state!'
+                sys.stdout.flush()
                 self.update_view_change_state(msg)
             elif self.version_dominates(msg.version, p_version):
+                print 'Fast forwarding!'
+                sys.stdout.flush()
                 self.request_fast_forward(address)
                 self.pending_view_change_msgs[msg.node_id] = msg
             else:
+                print 'Ignoring!'
+                sys.stdout.flush()
                 return #ignore
 
     def request_fast_forward(self, address):
@@ -400,7 +406,6 @@ class BFT2F_Node(DatagramProtocol):
                                sig="")
         ff_req.sig = self.sign_func(ff_req.SerializeToString())
         self.send_msg(ff_req, address)
-        
 
     def valid_view_change(self, msg):
         p_version = self.V[self.node_id]
@@ -415,6 +420,8 @@ class BFT2F_Node(DatagramProtocol):
 
         V, O = self.generate_V_and_O(self.view_change_msgs)
         if V and O:
+            print 'V and O!'
+            sys.stdout.flush()
             nv_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.NEW_VIEW,
                                    node_id=self.node_id,
                                    view=self.view + 1,
@@ -427,7 +434,10 @@ class BFT2F_Node(DatagramProtocol):
             self.view = self.view + 1
             self.pending_view_change_msgs = {}
             self.view_change_msgs = []
-            self.state=NodeState.Normal
+            self.state=NodeState.NORMAL
+        else:
+            print 'no dice'
+            sys.stdout.flush()
             #TODO LOCK
 
     def generate_V_and_O(self, view_msgs):
@@ -435,7 +445,7 @@ class BFT2F_Node(DatagramProtocol):
         O = {}
         for vc_msg in view_msgs:
             valid_vc_msg = True
-            for P_m in msg.P:
+            for P_m in vc_msg.P:
                 cur_pp_msg = P_em[0]                    
                 new_pp_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.PRE_PREPARE,
                                            node_id=self.node_id,
@@ -485,8 +495,9 @@ class BFT2F_Node(DatagramProtocol):
         return True
         
     def handle_new_view(self, msg, address):
-        if self.state == NodeState.Normal:
-            self.state = NodeState.ViewChange            
+        print 'Got a new view msg! %d' % self.node_id
+        if self.state == NodeState.NORMAL:
+            self.state = NodeState.VIEW_CHANGE
         if self.node_id != self.primary(self.view + 1):
             return
         if not all(self.valid_P(vc_msg.P) for vc_msg in msg.V):
@@ -504,16 +515,20 @@ class BFT2F_Node(DatagramProtocol):
                 return
 
         if self.version_dominates(msg.version, self.V[self.node_id]):
-            self.pending_new_view_msgs.append(msg)
+            self.pending_new_view_msg = msg
             self.request_fast_forward(address)
             return
 
         self.process_new_view(msg)
 
     def process_new_view(self, msg):
-        self.view = msg.view
+        print 'New View: me %d view %d' % (self.node_id, msg.view)
+        sys.stdout.flush()
         self.timer.cancel()
-        self.state=NodeState.Normal
+        self.view = msg.view
+        self.state=NodeState.NORMAL
+        self.pending_new_view_msgs = None
+
         sorted_pp_msgs = sorted(msg.O, key=lambda pp_msg: pp_msg.n)
         for pp_msg in sorted_pp_msgs:
             if self.V[self.node_id].n >= pp_msg.n:
@@ -557,8 +572,13 @@ class BFT2F_Node(DatagramProtocol):
             else:
                 #break if invalid req_proof
                 break
+
         if msg.node_id in self.pending_view_change_msgs:            
             self.handle_view_change(self.pending_view_change_msgs[msg.node_id], address)
+        elif self.pending_new_view_msg and\
+             msg.node_id == self.pending_new_view_msg.node_id:
+            # TODO double check this logic -A
+            self.process_new_view(self.pending_new_view_msg)
 
     def valid_req_proof(self, req_proof):
         # 2*F+1 unique versions
@@ -644,7 +664,6 @@ class BFT2F_Node(DatagramProtocol):
         return False
 
     def sign_func(self, data):
-        #return ""
         digest = SHA.new(data)
         sign = self.private_key.sign(digest) 
         return b64encode(sign)
