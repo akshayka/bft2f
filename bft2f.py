@@ -46,6 +46,7 @@ def start_nodes(net):
       h = net.getNodeByName('h%d'%(i))
       h.cmd("route add -net default dev h%d-eth0" % (i))
       popens[h] = h.popen('python start_node.py --node_id=%d 2>&1' % (i), shell=True)
+      #h.popen('python start_node.py --node_id=%d 2>&1' % (i), shell=True)
       
 def start_client(net):
     client = net.getNodeByName('client')

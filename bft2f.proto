@@ -3,12 +3,14 @@ message BFT2F_VERSION {
   required int64 view = 2;
   required int64 n = 3;
   required string hcd = 4;
+  required string sig = 5;
 }
 
 message BFT2F_OP {
   enum BFT2F_OP_TYPE {
     PUT = 0;
     GET = 1;
+    NO_OP = 2;
   }
   required BFT2F_OP_TYPE type = 1;
   required string key = 2;
@@ -24,8 +26,10 @@ message BFT2F_MESSAGE {
     COMMIT = 3;
     REPLY = 4;
     VIEW_CHANGE = 5;
-    NEW_VIEW = 6;
+    NEW_VIEW = 6;    
     CHECKPOINT = 7;
+    FAST_FORWARD_REQUEST = 8;
+    FAST_FORWARD_REPLY = 9;
   }
 
   required BFT2F_MESSAGE_TYPE msg_type = 1;
@@ -39,13 +43,20 @@ message BFT2F_MESSAGE {
   optional int64 n = 9;
   optional string req_D = 10;
   repeated BFT2F_MESSAGE_LIST P = 11;
-  optional string res = 12;
-  optional string state_D = 13;
-  optional string replay_cache_D = 14;
-
+  repeated BFT2F_MESSAGE O = 12;
+  repeated BFT2F_MESSAGE V = 13;
+  optional string res = 14;
+  repeated BFT2F_REQUEST_PROOF req_proofs = 15;
+  optional string state_D = 16;
+  optional string replay_cache_D = 17;
 }
 
 
 message BFT2F_MESSAGE_LIST {
   repeated BFT2F_MESSAGE msgs = 1;
+}
+
+message BFT2F_REQUEST_PROOF {
+  required BFT2F_MESSAGE req = 1;
+  repeated BFT2F_VERSION matching_versions = 2;
 }
