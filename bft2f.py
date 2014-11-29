@@ -72,7 +72,7 @@ def main():
     for h, line in pmonitor(popens, timeoutms=500):
         if num_term == num_processes:
             break
-        if h:
+        if h and h.name == "h0":
             print '%s: %s' % ( h.name, line ),
         if time() >= endTime:
            for p in popens.values():
