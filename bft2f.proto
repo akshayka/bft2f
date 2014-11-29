@@ -47,3 +47,14 @@ message BFT2F_MESSAGE {
 message BFT2F_MESSAGE_LIST {
   repeated BFT2F_MESSAGE msgs = 1;
 }
+
+message BFT2F_SIGN_REQ {
+  required string user_id =1;
+  required string token =2;
+}
+message BFT2F_SIGN_RES {
+  required string user_id =1;
+  required string priv_key_enc =2;
+  required string pub_key =3;
+  required string signature =4;
+}
