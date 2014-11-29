@@ -260,9 +260,6 @@ class BFT2F_Node(DatagramProtocol):
     # pre_prepare: <node-id, view, n, D(msg_n)>
     def handle_pre_prepare(self, msg):
         #cancel timeout if any
-        if self.node_id != self.primary(self.view):
-            return
-
         if (not self.seqno_in_bounds(msg.n)) or\
            msg.req_D not in self.request_msgs or\
            self.view != msg.view or\
@@ -282,14 +279,15 @@ class BFT2F_Node(DatagramProtocol):
         p_msg.sig = self.sign_func(p_msg.SerializeToString())
 
         self.highest_accepted_n = msg.n
+        print 'Sending prepare %d' % self.node_id
         self.send_multicast(p_msg)
-
-        return
 
     # prepare: <node-id, view, n, D(msg_n)>
     def handle_prepare(self, msg):        
         if (not self.seqno_in_bounds(msg.n)) or\
            msg in self.prepare_msgs.setdefault(msg.n, []):
+            print 'not in bounds aaayeeeeee!'
+            sys.stdout.flush()
             return
         
         self.prepare_msgs[msg.n].append(msg)
@@ -313,6 +311,7 @@ class BFT2F_Node(DatagramProtocol):
                                   sig="")
             c_msg.sig=self.sign_func(c_msg.SerializeToString())
             self.send_multicast(c_msg)
+        print 'id %d len prepare %d seqno %d' % (self.node_id, len(self.prepare_msgs[msg.n]), msg.n)
 
     # commit: < version-vector-entry >
     def handle_commit(self, msg, address):
