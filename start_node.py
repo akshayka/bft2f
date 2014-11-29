@@ -132,8 +132,11 @@ class BFT2F_Node(DatagramProtocol):
             key = open("./certs/client%d.pem"%i, "r").read() 
             self.client_pubkeys.append(PKCS1_v1_5.new(RSA.importKey(key)))
 
-        # map sequence number to pending checkpoints
+        # map sequence number to pending checkpoint
         self.pending_checkpoints = {}
+
+        # map sequence number to list of checkpoint proofs
+        self.checkpoint_proofs = {}
 
     def change_view(self):
         print "timed out: %d"%self.V[self.node_id].view
@@ -355,6 +358,22 @@ class BFT2F_Node(DatagramProtocol):
     def handle_checkpoint(self, msg, address):
         # collect 2f + 1 checkpoint messages for a given sequence number
         # these messages prove that a checkpoint is stable
+
+        # Ignore if already stable
+        if self.pending_checkpoints.get(n) and\
+           len(self.checkpoint_proofs.setdefault(msg.n, [])) >= 2 * F + 1:
+            return
+        
+        if not self.pending_checkpoints.get(n):
+            self.checkpoint_proofs.setdefault(msg.n, []).append(msg)
+        else:
+            if msg.node_id == self.node_id:
+               # TODO remove offending checkpoints
+            # if valid message
+            #   self.checkpoint_proofs.setdefault(msg.n, []).append(msg)
+            # if 2F + 1
+            #   save to disk
+            #   truncate old state, forget old checkpoint
         pass
 
     def handle_view_change(self, msg, address):
