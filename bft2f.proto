@@ -33,7 +33,7 @@ message BFT2F_MESSAGE {
   }
 
   required BFT2F_MESSAGE_TYPE msg_type = 1;
-  required string sig = 2;
+  optional string sig = 2;
   optional BFT2F_OP op = 3;
   optional int64 ts = 4;
   optional int64 client_id = 5;
