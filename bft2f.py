@@ -15,7 +15,7 @@ from time import sleep, time
 from multiprocessing import Process
 from argparse import ArgumentParser
 
-from signal import SIGINT
+import signal
 
 NUMBER_NODES = 7
 RUN_DURATION = 5
@@ -45,16 +45,16 @@ def start_nodes(net):
   for i in range(0, NUMBER_NODES):
       h = net.getNodeByName('h%d'%(i))
       h.cmd("route add -net default dev h%d-eth0" % (i))
-      popens[h] = h.popen('python start_node.py --node_id=%d 2>&1' % (i), shell=True)
+      popens[h] = h.popen('python start_node.py --node_id=%d 2>&1' % (i),
+                          shell=True, preexec_fn=os.setsid)
       #h.popen('python start_node.py --node_id=%d 2>&1' % (i), shell=True)
       
 def start_client(net):
     client = net.getNodeByName('client')
     client.cmd("route add -net default dev client-eth0")
     popens[client] = client.popen('python start_client.py --client_id=%d 2>&1' % (0),
-                                  shell=True)
+                                  shell=True, preexec_fn=os.setsid)
     
-
 def main():
     topo = BftTopo()
     net = Mininet(topo=topo, host=CPULimitedHost, link=TCLink)
@@ -68,16 +68,13 @@ def main():
     start_client(net)
     endTime = time() + RUN_DURATION
     num_processes = len(popens)
-    num_term = 0
     for h, line in pmonitor(popens, timeoutms=500):
-        if num_term == num_processes:
-            break
-        if h and h.name == "h0":
+        if h:
             print '%s: %s' % ( h.name, line ),
         if time() >= endTime:
-           for p in popens.values():
-              num_term = num_term + 1
-              p.send_signal(SIGINT)
+            break
+    for p in popens.values():
+        os.killpg(p.pid, signal.SIGTERM)
     net.stop()
 
 if __name__ == '__main__':

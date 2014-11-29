@@ -205,7 +205,6 @@ class BFT2F_Node(DatagramProtocol):
             print "Recieved a COMMIT"
             self.handle_commit(msg, address)
         elif msg.msg_type == BFT2F_MESSAGE.VIEW_CHANGE:
-            print "Recieved a VIEW_CHANGE"
             self.handle_view_change(msg, address)
         elif msg.msg_type == BFT2F_MESSAGE.NEW_VIEW:            
             print "Recieved a NEW_VIEW"
@@ -224,7 +223,7 @@ class BFT2F_Node(DatagramProtocol):
     def handle_request(self, msg, address):
         #TODO check fork state 
         last_rep_entry = self.replay_cache.get(msg.client_id)
-        if last_rep_entry and last_rep_entry.rep:
+        if last_rep_entry is not None and last_rep_entry.rep:
             if last_rep_entry.req.ts < msg.ts:
                 return
             elif last_rep_entry.req.ts == msg.ts:
@@ -250,7 +249,7 @@ class BFT2F_Node(DatagramProtocol):
 
         self.replay_cache[msg.client_id] = CacheEntry(req=msg, rep=None)
         self.request_msgs[self.digest_func(msg.SerializeToString())] = msg
-        #start timeout for view change
+
         self.timer = Timer(VIEW_TIMEOUT,self.change_view,args=[])
         self.timer.start()
 
@@ -411,13 +410,13 @@ class BFT2F_Node(DatagramProtocol):
             return
 
         V, O = self.generate_V_and_O(self.view_change_msgs)
-        if V and O:
+        if V is not None and O is not None:
             print 'V and O!'
             sys.stdout.flush()
             nv_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.NEW_VIEW,
                                    node_id=self.node_id,
                                    view=self.view + 1,
-                                   version=self.V[selfnode_id],
+                                   version=self.V[self.node_id],
                                    V=V,
                                    O=O.values(),
                                    sig="")
@@ -466,8 +465,12 @@ class BFT2F_Node(DatagramProtocol):
                                                sig="")
                     new_pp_msg.sig = self.sign_func(new_pp_msg.SerializeToString())
                     O[n] = new_pp_msg
+            print 'ohy eah!'
+            sys.stdout.flush()
             return (V, O)
         else:
+            print len(V)
+            sys.stdout.flush()
             return (None, None)
 
     def valid_P(self, P):
