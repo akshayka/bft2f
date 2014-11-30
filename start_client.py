@@ -52,6 +52,7 @@ class BFT2F_Client(DatagramProtocol):
         # TODO: Make this correct -A
         self.bft2f_put('1', 'one')
         self.bft2f_get('1')
+        self.bft2f_put('2', 'two')
 
     def bft2f_put(self, key, val):
         msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.REQUEST,
@@ -86,14 +87,10 @@ class BFT2F_Client(DatagramProtocol):
             print "wrong signature : %d :" % msg.node_id, msg.msg_type
             sys.stdout.flush()
             return
-        else:
-            print "valid signature"
-            sys.stdout.flush()
 
         # TODO: We need to collect 2F + 1 matching versions before updating
         # our own version -A
         self.version = msg.version
-        print self.version
 
         print msg.res
         sys.stdout.flush()

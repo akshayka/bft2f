@@ -18,7 +18,7 @@ from argparse import ArgumentParser
 import signal
 
 NUMBER_NODES = 7
-RUN_DURATION = 20
+RUN_DURATION = 10
 popens = {}
 
 
@@ -41,13 +41,15 @@ class BftTopo(Topo):
         return
 
 
-def start_nodes(net):
-  for i in range(0, NUMBER_NODES):
-      h = net.getNodeByName('h%d'%(i))
-      h.cmd("route add -net default dev h%d-eth0" % (i))
-      popens[h] = h.popen('python start_node.py --node_id=%d 2>&1' % (i),
-                          shell=True, preexec_fn=os.setsid)
-      #h.popen('python start_node.py --node_id=%d 2>&1' % (i), shell=True)
+def start_nodes(net, verbose):
+    for i in range(0, NUMBER_NODES):
+        h = net.getNodeByName('h%d'%(i))
+        h.cmd("route add -net default dev h%d-eth0" % (i))
+        if verbose:
+            cmd = 'python start_node.py --node_id=%d -v 2>&1' % i
+        else:
+            cmd = 'python start_node.py --node_id=%d 2>&1' % i
+        popens[h] = h.popen(cmd, shell=True, preexec_fn=os.setsid)
       
 def start_client(net):
     client = net.getNodeByName('client')
@@ -56,13 +58,18 @@ def start_client(net):
                                   shell=True, preexec_fn=os.setsid)
     
 def main():
+    parser = ArgumentParser()
+    parser.add_argument('--verbose', '-v', action='store_true')
+    args = parser.parse_args()
+
     topo = BftTopo()
     net = Mininet(topo=topo, host=CPULimitedHost, link=TCLink)
     net.start()
     # This dumps the topology and how nodes are interconnected through
     # links.
     dumpNodeConnections(net.hosts)
-    start_nodes(net)
+
+    start_nodes(net, args.verbose)
     #CLI(net)
     sleep(1)
     start_client(net)
