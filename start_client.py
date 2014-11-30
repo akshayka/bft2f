@@ -35,6 +35,8 @@ class BFT2F_Client(DatagramProtocol):
 
         self.version = BFT2F_VERSION(node_id=0, view=0, n=0, hcd="")
 
+        self.ts = 0
+
         #load public keys
         self.server_pubkeys=[]
         for i in xrange(0, 3 * F + 1):
@@ -49,19 +51,12 @@ class BFT2F_Client(DatagramProtocol):
         # send commit
         # TODO: Make this correct -A
         self.bft2f_put('1', 'one')
-        self.bft2f_put('2', 'two')
-        self.bft2f_get('2')
         self.bft2f_get('1')
-
-        #sleep(25)
-        #print "send again"
-        #sys.stdout.flush()
-        #self.transport.write(msg.SerializeToString(), (MULTICAST_ADDR, PORT))
 
     def bft2f_put(self, key, val):
         msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.REQUEST,
                             op=BFT2F_OP(type=BFT2F_OP.PUT, key=key, val=val),
-                            ts=1,
+                            ts=self.make_ts(),
                             client_id=self.client_id,
                             version=self.version,
                             sig='')
@@ -71,13 +66,12 @@ class BFT2F_Client(DatagramProtocol):
     def bft2f_get(self, key):
         msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.REQUEST,
                             op=BFT2F_OP(type=BFT2F_OP.GET, key=key),
-                            ts=1,
+                            ts=self.make_ts(),
                             client_id=self.client_id,
                             version=self.version,
                             sig='')
         msg.sig = self.sign_func(msg.SerializeToString())
         self.transport.write(msg.SerializeToString(), (MULTICAST_ADDR, PORT))
-        pass
 
     def datagramReceived(self, datagram, address):
         #print "Datagram %s received from %s" % (repr(datagram), repr(address))
@@ -89,13 +83,17 @@ class BFT2F_Client(DatagramProtocol):
         signature = msg.sig
         msg.sig = ""
         if not self.verify_func(signer,signature,msg.SerializeToString()):
-            print "wrong signature : %d :"%msg.node_id, msg.msg_type
+            print "wrong signature : %d :" % msg.node_id, msg.msg_type
             sys.stdout.flush()
             return
         else:
             print "valid signature"
             sys.stdout.flush()
+
+        # TODO: We need to collect 2F + 1 matching versions before updating
+        # our own version -A
         self.version = msg.version
+        print self.version
 
         print msg.res
         sys.stdout.flush()
@@ -112,6 +110,10 @@ class BFT2F_Client(DatagramProtocol):
         sign = self.private_key.sign(digest) 
         return b64encode(sign)
 
+    def make_ts(self):
+        ret = self.ts
+        self.ts = self.ts + 1
+        return ret
 
 def main():
 	reactor.listenMulticast(8005, BFT2F_Client(args.client_id), listenMultiple=True)
