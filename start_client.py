@@ -33,6 +33,8 @@ class BFT2F_Client(DatagramProtocol):
         key = open("./certs/rootCA_pub.pem", "r").read() 
         self.rootCA_pubkey = PKCS1_v1_5.new(RSA.importKey(key))
 
+        self.version = BFT2F_VERSION(node_id=0, view=0, n=0, hcd="")
+
         #load public keys
         self.server_pubkeys=[]
         for i in xrange(0, 3 * F + 1):
@@ -46,14 +48,11 @@ class BFT2F_Client(DatagramProtocol):
         # (including us) will receive this message.
         # send commit
         # TODO: Make this correct -A
-        msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.REQUEST,
-                            op=BFT2F_OP(type=BFT2F_OP.PUT, key='hello', val='hi'),
-                            ts=1,
-                            client_id=self.client_id,
-                            version=BFT2F_VERSION(node_id=0, view=0, n=0, hcd=""),
-                            sig='')
-        msg.sig = self.sign_func(msg.SerializeToString())
-        self.transport.write(msg.SerializeToString(), (MULTICAST_ADDR, PORT))
+        self.bft2f_put('1', 'one')
+        self.bft2f_put('2', 'two')
+        self.bft2f_get('2')
+        self.bft2f_get('1')
+
         #sleep(25)
         #print "send again"
         #sys.stdout.flush()
@@ -64,12 +63,20 @@ class BFT2F_Client(DatagramProtocol):
                             op=BFT2F_OP(type=BFT2F_OP.PUT, key=key, val=val),
                             ts=1,
                             client_id=self.client_id,
-                            version=BFT2F_VERSION(node_id=0, view=0, n=0, hcd=""),
+                            version=self.version,
                             sig='')
         msg.sig = self.sign_func(msg.SerializeToString())
         self.transport.write(msg.SerializeToString(), (MULTICAST_ADDR, PORT))
 
     def bft2f_get(self, key):
+        msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.REQUEST,
+                            op=BFT2F_OP(type=BFT2F_OP.GET, key=key),
+                            ts=1,
+                            client_id=self.client_id,
+                            version=self.version,
+                            sig='')
+        msg.sig = self.sign_func(msg.SerializeToString())
+        self.transport.write(msg.SerializeToString(), (MULTICAST_ADDR, PORT))
         pass
 
     def datagramReceived(self, datagram, address):
@@ -88,6 +95,7 @@ class BFT2F_Client(DatagramProtocol):
         else:
             print "valid signature"
             sys.stdout.flush()
+        self.version = msg.version
 
         print msg.res
         sys.stdout.flush()

@@ -63,7 +63,6 @@ class BFT2F_Node(DatagramProtocol):
         # TODO What if a malicious primary sends no_op requests,
         # even though no client sent them? Our replicas will see that they have
         # a no_op request in request_msgs, which might be a problem. -A
-        # messages received directly from the client
         self.request_msgs = {self.NO_OP_REQUEST_D: self.NO_OP_REQUEST}
 
         # map sequence number to single pre_prepare msg
@@ -79,10 +78,6 @@ class BFT2F_Node(DatagramProtocol):
         # a view change; only needs to contain uncommitted msgs
         self.prepare_msgs = {}
 
-        # map sequence number to bag of commit msgs
-        #
-        self.commit_msgs = {}
-        
         # augmented hash chain digest history
         #
         # referred to when checking the fork set of a client's message,
@@ -97,6 +92,7 @@ class BFT2F_Node(DatagramProtocol):
         self.T = {self.highest_accepted_n: HistoryEntry(hcd="", matching_versions=[])} # start with emtpy HCD
         self.kv_store = {}
         self.client_addr = {}
+        self.timer = None
 
         # version vector init
         self.V = [None] * (3 * F + 1)
@@ -249,17 +245,15 @@ class BFT2F_Node(DatagramProtocol):
 
         self.replay_cache[msg.client_id] = CacheEntry(req=msg, rep=None)
         self.request_msgs[self.digest_func(msg.SerializeToString())] = msg
-
-        self.timer = Timer(VIEW_TIMEOUT,self.change_view,args=[])
-        self.timer.start()
+        self.start_timer()
 
     # pre_prepare: <node-id, view, n, D(msg_n)>
     def handle_pre_prepare(self, msg):
         if (not self.seqno_in_bounds(msg.n)) or\
            msg.req_D not in self.request_msgs or\
            self.view != msg.view or\
-           (self.pre_prepare_msgs.get(msg.n) != msg and\
-                self.pre_prepare_msgs.get(msg.n)):
+           (self.pre_prepare_msgs.get(msg.n) and\
+                self.pre_prepare_msgs.get(msg.n) != msg):
             print "ignore"
             sys.stdout.flush()
             return;
@@ -285,6 +279,12 @@ class BFT2F_Node(DatagramProtocol):
         self.prepare_msgs[msg.n].append(msg)
         if len(self.prepare_msgs[msg.n]) == 2 * F + 1:
             r_msg = self.request_msgs[msg.req_D]
+            # TODO ONLY PROCEED IF ALL REQUESTS WITH LOWER SEQUENCE NUMBERS
+            # HAVE BEEN COMMITTED -A
+            # cv.acquire()
+            #   my last committed is self.V[self.node_id].n
+            #   lookup keys in prepare -- if there exist entry for anything
+            #     greater than my last committed but before me, must wait
             new_hcd = self.digest_func(self.digest_func(r_msg.SerializeToString()) +\
                                            self.V[self.node_id].hcd)
             self.T[msg.n] = HistoryEntry(hcd=new_hcd, matching_versions=[])
@@ -303,7 +303,6 @@ class BFT2F_Node(DatagramProtocol):
                                   sig="")
             c_msg.sig=self.sign_func(c_msg.SerializeToString())
             self.send_multicast(c_msg)
-        print 'id %d len prepare %d seqno %d' % (self.node_id, len(self.prepare_msgs[msg.n]), msg.n)
 
     # commit: < version-vector-entry >
     def handle_commit(self, msg, address):
@@ -321,7 +320,7 @@ class BFT2F_Node(DatagramProtocol):
                                          matching_versions=matching_versions)
             r_msg = self.request_msgs[self.pre_prepare_msgs[msg.version.n].req_D]
             res = self.execute_op(r_msg.op)
-            self.timer.cancel()
+            self.cancel_timer() 
             client_id = r_msg.client_id
             rp_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.REPLY,
                                    client_id=r_msg.client_id,
@@ -334,6 +333,8 @@ class BFT2F_Node(DatagramProtocol):
             self.replay_cache[r_msg.client_id]=rp_msg
             print "replying to %s %s" % (client_id, PORT)
             self.send_msg(rp_msg, self.client_addr[client_id])
+
+            # condition variable: 
 
             # TODO According to the original paper, we generate
             # a checkpoint 'when a request with a sequence number divisible
@@ -465,7 +466,6 @@ class BFT2F_Node(DatagramProtocol):
                                                sig="")
                     new_pp_msg.sig = self.sign_func(new_pp_msg.SerializeToString())
                     O[n] = new_pp_msg
-            print 'ohy eah!'
             sys.stdout.flush()
             return (V, O)
         else:
@@ -519,7 +519,7 @@ class BFT2F_Node(DatagramProtocol):
     def process_new_view(self, msg):
         print 'New View: me %d view %d' % (self.node_id, msg.view)
         sys.stdout.flush()
-        self.timer.cancel()
+        self.cancel_timer()
         self.view = msg.view
         self.state=NodeState.NORMAL
         self.pending_new_view_msgs = None
@@ -609,11 +609,25 @@ class BFT2F_Node(DatagramProtocol):
         return v1.view >= v2.view and\
             ((v1.n == v2.n and v1.hcd == v2.hcd) or v1.n > v2.n)
 
+    def start_timer(self):
+        if self.timer is None:
+            self.timer = Timer(VIEW_TIMEOUT,self.change_view, args=[])
+            self.timer.start()
+            print 'START' 
+            sys.stdout.flush()
+
+    def cancel_timer(self):
+        if self.timer is not None:
+            self.timer.cancel()
+            self.timer = None
+            print 'CANCEL'
+            sys.stdout.flush()
+
     def execute_op(self, op):
         #TODO tokens
         if op.type == BFT2F_OP.PUT:
             self.kv_store[op.key] = op.val
-        return self.kv_store[op.key]
+        return self.kv_store.get(op.key, "")
 
     def make_checkpoint(self, n):
         hcd_n = self.T[n]
@@ -631,7 +645,7 @@ class BFT2F_Node(DatagramProtocol):
         self.send_multicast(ck_msg)
 
     def seqno_in_bounds(self, n):
-        return n >= self.low_water_mark and n <= self.high_water_mark
+        return n >= self.highest_accepted_n and n <= self.high_water_mark
 
     def versions_match(self, v1, v2):
         return (v1.view == v2.view) and (v1.n == v2.n) and (v1.hcd == v2.hcd)
