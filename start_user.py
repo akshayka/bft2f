@@ -51,51 +51,9 @@ pub_key_filename="/tmp/user0key_pub.pem"
 
 
 def main():
-    s = smtplib.SMTP('localhost',2225)
-    s.ehlo()
-    res=s.docmd('auth cram-cert')
-    token = b64decode(res[1])
-    #send request to a bft2f client
-    # sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP socket
-    # sock.sendto(BFT2F_SIGN_REQ(user_id=USER_ID, token=token), (CLIENT_ADDR, PORT))
-    # sock.bind(("0.0.0.0", PORT))
-    #while True:
-    # datagram, addr = sock.recvfrom(1024)
-    # print datagram,addr
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((CLIENT_ADDR, PORT))
-    sock.send(BFT2F_SIGN_REQ(user_id=USER_ID, token=token).SerializeToString())
-    data = sock.recv(BUFFER_SIZE)
-    sock.close()
-
-    #get priv_key, pubkey, signature
-    #JSON + base64
-    rmsg=BFT2F_SIGN_RES()
-    rmsg.ParseFromString(datagram)
-    auth_str = b64encode(json.dumps({'id':USER_ID, 'pub_key':rmsg.pub_key,'signature':rmsg.signature}))
-    res=s.docmd(auth_str)
-    if res[0] != 235:
-        print "Auth failed"
-    key = RSA.importKey(rmsg.priv_key_enc,USER_PW)
-    f = open(priv_key_filename,'w')
-    f.write(key.exportKey('PEM'))
-    f.close()
-    key = RSA.importKey(rmsg.pub_key)
-    f = open(pub_key_filename,'w')
-    f.write(key.publickey().exportKey('PEM'))
-    f.close()
-    s.starttls(priv_key_filename,pub_key_filename)
-    msg = MIMEText("cs244b test")
-    msg['Subject'] = "cs244b test"
-    msg['From'] = email_sender
-    msg['To'] = email_receiver
-    s.sendmail(email_sender, [email_receiver], msg.as_string())
-    s.quit()
-
-if __name__ == '__main__':
-    
-
-    # Example sign up and sign in 
+    f1=open(priv_key_filename,"r")
+    f2=open(pub_key_filename,"r")
+    # sign up
     retry = True
     while(retry):
         print "trying"
@@ -108,20 +66,80 @@ if __name__ == '__main__':
             protocol = TBinaryProtocol.TBinaryProtocol(transport)
             client = Auth_Service.Client(protocol)
             transport.open()
-            res = client.sign_up(user_id="user_id", user_pub_key="user_pub_key", user_priv_key_enc="user_priv_key_enc")
+            rmsg = client.sign_up(user_id=USER_ID, user_pub_key=f2.read(), user_priv_key_enc=f1.read())
             transport.close()
         except:
             print "crashed"
             sys.stdout.flush()
             retry=True
             transport.close()
+    f1.close()
+    f2.close()    
 
-            
 
-    print res
-    sys.stdout.flush()
+    s = smtplib.SMTP('localhost',2225)
+    s.ehlo()
+    res=s.docmd('auth cram-cert')
+    token = b64decode(res[1])
+    #send request to a bft2f client
+    # sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP socket
+    # sock.sendto(BFT2F_SIGN_REQ(user_id=USER_ID, token=token), (CLIENT_ADDR, PORT))
+    # sock.bind(("0.0.0.0", PORT))
+    #while True:
+    # datagram, addr = sock.recvfrom(1024)
+    # print datagram,addr
+    # sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # sock.connect((CLIENT_ADDR, PORT))
+    # sock.send(BFT2F_SIGN_REQ(user_id=USER_ID, token=token).SerializeToString())
+    # data = sock.recv(BUFFER_SIZE)
+    # sock.close()
+    # rmsg=BFT2F_SIGN_RES()
+    # rmsg.ParseFromString(datagram)
 
-    #res = client.sign_in(user_id="user_id", token="token")
-    #print res
-    #sys.stdout.flush()
+    
+    retry = True
+    while(retry):
+        print "trying"
+        sys.stdout.flush()
+        retry = False
+        try:     
+            transport = TSocket.TSocket(args.client_ip, USER_PORT)
+            transport.setTimeout(5000)
+            transport = TTransport.TBufferedTransport(transport)
+            protocol = TBinaryProtocol.TBinaryProtocol(transport)
+            client = Auth_Service.Client(protocol)
+            transport.open()
+            rmsg = client.sign_in(user_id="user_id", token="token")
+            transport.close()
+        except:
+            print "crashed"
+            sys.stdout.flush()
+            retry=True
+            transport.close()
+    # print res
+    # sys.stdout.flush()
+    #get priv_key, pubkey, signature
+    #JSON + base64
+    auth_str = b64encode(json.dumps({'id':USER_ID, 'pub_key':rmsg.user_pub_key,'signature':rmsg.sign_in_certs}))
+    res=s.docmd(auth_str)
+    if res[0] != 235:
+        print "Auth failed"
+    key = RSA.importKey(rmsg.user_priv_key_enc,USER_PW)
+    f = open(priv_key_filename,'w')
+    f.write(key.exportKey('PEM'))
+    f.close()
+    key = RSA.importKey(rmsg.user_pub_key)
+    f = open(pub_key_filename,'w')
+    f.write(key.publickey().exportKey('PEM'))
+    f.close()
+    s.starttls(priv_key_filename,pub_key_filename)
+    msg = MIMEText("cs244b test")
+    msg['Subject'] = "cs244b test"
+    msg['From'] = email_sender
+    msg['To'] = email_receiver
+    s.sendmail(email_sender, [email_receiver], msg.as_string())
+    s.quit()
+
+if __name__ == '__main__':
+    main()
 
