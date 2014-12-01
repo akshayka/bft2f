@@ -80,9 +80,10 @@ def main():
     dumpNodeConnections(net.hosts)
 
     start_nodes(net, args.verbose)
-    #CLI(net)
     start_client(net)
-    sleep(1)
+    #CLI(net)
+
+    sleep(2)
     start_user(net)
     endTime = time() + RUN_DURATION
     num_processes = len(popens)

@@ -664,7 +664,7 @@ class BFT2F_Node(DatagramProtocol):
                                     user_id=op.user_id,
                                     token=op.token)
             user_store_ent = self.user_store.get(op.user_id)
-            res.sign_in_cert = BFT2f_SIGN_IN_CERT(
+            sign_in_cert = BFT2f_SIGN_IN_CERT(
                 node_pub_key=self.server_pubkeys[self.node_id]._key.exportKey(),
                 sig=self.sign_func(op.token + user_store_ent.user_pub_key))
 

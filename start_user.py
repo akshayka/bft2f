@@ -73,10 +73,13 @@ if __name__ == '__main__':
     protocol = TBinaryProtocol.TBinaryProtocol(transport)
     client = Auth_Service.Client(protocol)
     transport.open()
-    client.ping()
-    
-    res = client.sign_up(user_id="101", user_pub_key="user_pub_key", user_priv_key_enc="user_priv_key_enc")    
+
+    # Example sign up and sign in 
+    res = client.sign_up(user_id="user_id", user_pub_key="user_pub_key", user_priv_key_enc="user_priv_key_enc")    
     print res
-    res = client.sign_in(user_id="101", token="token")
+    sys.stdout.flush()
+        
+    res = client.sign_in(user_id="user_id", token="token")
     print res
-    
+    sys.stdout.flush()
+
