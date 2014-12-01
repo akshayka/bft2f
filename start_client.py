@@ -64,6 +64,8 @@ class Auth_Service_Handler:
                                         sign_in_certs=sign_in_certs)
 
     def sign_up(self, user_id, user_pub_key, user_priv_key_enc):
+        print "sign up on cient"
+        sys.stdout.flush()
         req_id = user_id
         USER_REQUESTS[req_id] = [threading.Event(), []]
         # Make a call to bft2f
@@ -205,7 +207,8 @@ def start_thrift():
     transport = TSocket.TServerSocket(port=USER_PORT)
     tfactory = TTransport.TBufferedTransportFactory()
     pfactory = TBinaryProtocol.TBinaryProtocolFactory()
-    server = TServer.TSimpleServer(processor, transport, tfactory, pfactory)
+    server = TServer.TThreadedServer(processor, transport, tfactory, pfactory)
+    #server = TServer.TSimpleServer(processor, transport, tfactory, pfactory)
     server.serve()
 
 

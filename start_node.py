@@ -166,6 +166,8 @@ class BFT2F_Node(DatagramProtocol):
         self.transport.joinGroup(MULTICAST_ADDR)
 
     def datagramReceived(self, datagram, address):
+        if self.node_id == 0:
+            return
         self.lock.acquire()
         msg = BFT2F_MESSAGE()
         msg.ParseFromString(datagram)
@@ -433,8 +435,10 @@ class BFT2F_Node(DatagramProtocol):
             msg.version.n in self.T and self.T[msg.version.n].hcd == msg.version.hcd
 
     def update_view_change_state(self, msg):
-        self.view_change_msgs.append(msg)        
-        if len(self.view_change_msgs) < 2 * F + 1:
+        self.view_change_msgs.append(msg)
+        unique_node_ids = [vc_msg.node_id for vc_msg in self.view_change_msgs]
+        unique_node_ids = set(unique_node_ids)
+        if len(unique_node_ids) < 2 * F + 1:
             return
 
         V, O = self.generate_V_and_O(self.view_change_msgs)
@@ -516,13 +520,14 @@ class BFT2F_Node(DatagramProtocol):
         self.printv('Got a new view msg! %d' % self.node_id)
         if self.state == NodeState.NORMAL:
             self.state = NodeState.VIEW_CHANGE
-        if self.node_id != self.primary(self.view + 1):
-            return
         if not all(self.valid_P(vc_msg.P) for vc_msg in msg.V):
             return
 
-        V, O = self.generate_V_and_O(self.view_change_msgs)
-        if V != msg.V:
+        V, O = self.generate_V_and_O(msg.V)
+        if V == None or O == None:
+            return
+
+        if not self.valid_V(V):
             return
         
         if len(O) != len(msg.O):
@@ -538,6 +543,24 @@ class BFT2F_Node(DatagramProtocol):
             return
 
         self.process_new_view(msg)
+
+    def valid_V(self, V):
+        unique_node_ids = [vc_msg.node_id for vc_msg in V]
+        unique_node_ids = set(unique_node_ids)
+        if len(unique_node_ids) < 2 * F + 1:
+            return False
+        
+        for vc_msg in V:
+            signer = self.server_pubkeys[vc_msg.node_id]
+            signature = vc_msg.sig
+            vc_msg.sig = ""            
+            if not self.verify_func(signer,signature,vc_msg.SerializeToString()):
+                vc_msg.sig = signature
+                return False
+            vc_msg.sig = signature
+
+        return True
+
 
     def process_new_view(self, msg):
         self.printv('New View: me %d view %d' % (self.node_id, msg.view))
@@ -703,7 +726,7 @@ class BFT2F_Node(DatagramProtocol):
             if not versions_match(v, versions[0]):
                 return False
         return True
-        
+
     def send_msg(self, msg, address):
         self.transport.write(msg.SerializeToString(), address)
 
