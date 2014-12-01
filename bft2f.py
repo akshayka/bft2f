@@ -38,6 +38,9 @@ class BftTopo(Topo):
 
         client = self.addHost('client')
         self.addLink(client, s0)
+        user = self.addHost('user')
+        self.addLink(user, s0)
+
         return
 
 
@@ -54,6 +57,13 @@ def start_client(net):
     client.cmd("route add -net default dev client-eth0")
     popens[client] = client.popen('python start_client.py --client_id=%d 2>&1' % (0),
                                   shell=True, preexec_fn=os.setsid)
+
+def start_user(net):
+    user = net.getNodeByName('user')
+    client = net.getNodeByName('client')
+    user.cmd("route add -net default dev client-eth0")
+    popens[user] = client.popen('python start_user.py --client_ip=%s 2>&1' % (client.IP()),
+                                  shell=True, preexec_fn=os.setsid)
     
 def main():
     topo = BftTopo()
@@ -64,8 +74,9 @@ def main():
     dumpNodeConnections(net.hosts)
     start_nodes(net)
     #CLI(net)
-    sleep(1)
     start_client(net)
+    sleep(1)
+    start_user(net)
     endTime = time() + RUN_DURATION
     num_processes = len(popens)
     for h, line in pmonitor(popens, timeoutms=500):

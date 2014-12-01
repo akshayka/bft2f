@@ -25,6 +25,7 @@ WATER_MARK_DELTA = CHECKPOINT_INTERVAL * 2
 CacheEntry = namedtuple('CacheEntry', 'req rep')
 Checkpoint = namedtuple('Checkpoint', 'kv_store hcd V replay_cache')
 HistoryEntry = namedtuple('HistoryEntry', 'hcd matching_versions')
+UserStoreEntry = namedtuple('UserStoreEntry', 'user_pub_key user_priv_key_enc')
 counter = 0
 
 class NodeState():
@@ -54,7 +55,7 @@ class BFT2F_Node(DatagramProtocol):
 
         # TODO: Are we going to use these still? -A
         self.NO_OP_REQUEST = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.REQUEST,
-                                           op=BFT2F_OP(type=BFT2F_OP.NO_OP, key='no_op'),
+                                           op=BFT2F_OP(type=NO_OP, user_id='no_op'),
                                            sig='no_op')
         self.NO_OP_REQUEST_D = self.digest_func(self.NO_OP_REQUEST.SerializeToString())
 
@@ -90,7 +91,7 @@ class BFT2F_Node(DatagramProtocol):
         #
         # used during view changes and fast-forwards
         self.T = {self.highest_accepted_n: HistoryEntry(hcd="", matching_versions=[])} # start with emtpy HCD
-        self.kv_store = {}
+        self.user_store = {}
         self.client_addr = {}
         self.timer = None
 
@@ -625,9 +626,36 @@ class BFT2F_Node(DatagramProtocol):
 
     def execute_op(self, op):
         #TODO tokens
-        if op.type == BFT2F_OP.PUT:
-            self.kv_store[op.key] = op.val
-        return self.kv_store.get(op.key, "")
+        if op.type == SIGN_UP:
+            if op.user_id in self.user_store:
+                return BFT2f_OP_RES(type=BFT2f_OP_RES.USER_ID_EXISTS,
+                                    op_type=op.type,
+                                    user_id=op.user_id)
+            self.user_store[op.user_id] = UserStoreEntry(user_pub_key=op.user_pub_key,
+                                                         user_priv_key_enc=op.user_priv_key_enc)
+            return BFT2f_OP_RES(type=BFT2f_OP_RES.SUCCESS,
+                                op_type=op.type,
+                                user_id=op.user_id,
+                                user_pub_key=op.user_pub_key,
+                                user_priv_key_enc=op.user_priv_key_enc)
+        elif op.type == SIGN_IN:
+            if op.user_id not in self.user_store:
+                return BFT2f_OP_RES(type=BFT2f_OP_RES.USER_ID_NOT_FOUND,
+                                    op_type=op.type,
+                                    user_id=op.user_id,
+                                    token=op.token)
+            user_store_ent = self.user_store.get(op.user_id)
+            res.sign_in_cert = BFT2f_SIGN_IN_CERT(
+                node_pub_key=self.server_pubkeys[self.node_id]._key.exportKey(),
+                sig=self.sign_func(op.token + user_store_ent.user_pub_key))
+
+            return BFT2f_OP_RES(type=BFT2f_OP_RES.SUCCESS,
+                                op_type=op.type,
+                                user_id=op.user_id,
+                                user_pub_key=user_store_ent.user_pub_key,
+                                user_priv_key_enc=user_store_ent.user_priv_key_enc,
+                                token=op.token,
+                                sign_in_cert=sign_in_cert)
 
     def make_checkpoint(self, n):
         hcd_n = self.T[n]

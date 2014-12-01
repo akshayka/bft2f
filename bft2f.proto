@@ -6,16 +6,38 @@ message BFT2F_VERSION {
   optional string sig = 5;
 }
 
+enum BFT2F_OP_TYPE {
+  SIGN_UP = 0;
+  SIGN_IN = 1;
+  NO_OP = 2;
+}
+
 message BFT2F_OP {
-  enum BFT2F_OP_TYPE {
-    PUT = 0;
-    GET = 1;
-    NO_OP = 2;
-  }
   required BFT2F_OP_TYPE type = 1;
-  required string key = 2;
+  required string user_id = 2;
   optional string token = 3;
-  optional string val = 4;
+  optional string user_pub_key = 4;
+  optional string user_priv_key_enc = 5;
+}
+
+message BFT2f_OP_RES {
+  enum BFT2f_OP_RES_TYPE {
+    SUCCESS = 0;
+    USER_ID_NOT_FOUND = 1;
+    USER_ID_EXISTS = 2;
+  }
+  required BFT2f_OP_RES_TYPE type = 1;
+  required BFT2F_OP_TYPE op_type = 2;
+  required string user_id = 3;
+  optional string user_pub_key = 4;
+  optional string user_priv_key_enc = 5;
+  optional string token = 6;
+  optional BFT2f_SIGN_IN_CERT sign_in_cert = 7;
+}
+
+message BFT2f_SIGN_IN_CERT {
+  required string node_pub_key = 1;
+  required string sig = 2;
 }
 
 message BFT2F_MESSAGE {
@@ -45,12 +67,11 @@ message BFT2F_MESSAGE {
   repeated BFT2F_MESSAGE_LIST P = 11;
   repeated BFT2F_MESSAGE O = 12;
   repeated BFT2F_MESSAGE V = 13;
-  optional string res = 14;
+  optional BFT2f_OP_RES res = 14;
   repeated BFT2F_REQUEST_PROOF req_proofs = 15;
   optional string state_D = 16;
   optional string replay_cache_D = 17;
 }
-
 
 message BFT2F_MESSAGE_LIST {
   repeated BFT2F_MESSAGE msgs = 1;
@@ -62,12 +83,13 @@ message BFT2F_REQUEST_PROOF {
 }
 
 message BFT2F_SIGN_REQ {
-  required string user_id =1;
-  required string token =2;
+  required string user_id = 1;
+  required string token = 2;
 }
 message BFT2F_SIGN_RES {
-  required string user_id =1;
-  required string priv_key_enc =2;
-  required string pub_key =3;
-  required string signature =4;
+  required string user_id = 1;
+  required string priv_key_enc = 2;
+  required string pub_key = 3;
+  repeated BFT2f_SIGN_IN_CERT sign_in_certs = 4;
 }
+
