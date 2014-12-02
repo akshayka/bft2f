@@ -30,16 +30,16 @@ class NodeState():
     VIEW_CHANGE=2
 
 class BFT2F_Node(DatagramProtocol):
-    # TODO J raises a good point below -- what if the node is coming up after
-    # an outage? We'll have to run a protocol that allows this node to determine
-    # the current state. -A
-    # TODO should state be logged to disk? e.g. the message log.
-    # PBFT uses memory-mapped files that are asynchronously written to disk -A
     def __init__(self, node_id, verbose):
         self.lock = Lock()
         self.verbose = verbose
         self.node_id = node_id
         self.state = NodeState.NORMAL
+
+        # NB: If this node is coming up after a failure and has
+        # fallen behind, then it won't be able to execute operations.
+        # The first client request it receives will cause it to time
+        # out, triggering a view change that will bring it up to date.
         self.view = 0
 
         # highest sequence number for which a pre-prepare was accepted
@@ -366,7 +366,7 @@ class BFT2F_Node(DatagramProtocol):
                                       msg_type=BFT2F_MESSAGE.COMMIT,
                                       version=new_version,
                                       sig="")
-                c_msg.sig=self.sign(c_msg.SerializeToString())
+                c_msg.sig = self.sign(c_msg.SerializeToString())
                 self.send_multicast(c_msg)
 
     def handle_commit(self, msg, address):
@@ -578,7 +578,7 @@ class BFT2F_Node(DatagramProtocol):
         for P_m in P:
             cur_pp_msg = P_em[0]
             unique_p_msgs = list(set(P_m[1:]))
-            if(len(unique_p_msgs) < 2 * F + 1):
+            if len(unique_p_msgs) < 2 * F + 1:
                 return False            
             for u_p_msg in unique_p_msg:
                 signer = self.server_pubkeys[u_p_msg.node_id]
