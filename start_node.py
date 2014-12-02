@@ -817,7 +817,7 @@ class BFT2F_Node(DatagramProtocol):
             user_store_ent = self.user_store.get(op.user_id)
             signer = PKCS1_v1_5.new(RSA.importKey(user_store_ent.user_pub_key))
 
-            if not self.verify_func(signer, op.sig, op.new_user_pub_key):
+            if not self.verify(signer, op.sig, op.new_user_pub_key):
                 return BFT2f_OP_RES(type=BFT2f_OP_RES.INVALID_CRED_CHANGE,
                                     op_type=op.type,
                                     user_id=op.user_id)
