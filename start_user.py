@@ -11,7 +11,9 @@ import socket
 from argparse import ArgumentParser
 
 from Crypto.PublicKey import RSA 
-from Crypto.Signature import PKCS1_v1_5 
+from Crypto.Signature import PKCS1_v1_5
+from Crypto.Cipher import AES
+from Crypto import Random
 from Crypto.Hash import SHA 
 from base64 import b64encode, b64decode
 from twisted.internet import protocol, defer, endpoints, task
@@ -49,6 +51,26 @@ email_receiver="peaces1@gmail.com"
 priv_key_filename="/tmp/user0key_priv.pem"
 pub_key_filename="/tmp/user0key_pub.pem"
 
+def verify_func(signer, signature, data):
+    digest = SHA.new(data) 
+    if signer.verify(digest, b64decode(signature)):
+        return True
+    return False
+
+def sign_func(signer, data):
+    digest = SHA.new(data)
+    sign = signer.sign(digest) 
+    return b64encode(sign)
+
+
+def get_new_client():
+    transport = TSocket.TSocket(args.client_ip, USER_PORT)
+    transport.setTimeout(5000)
+    transport = TTransport.TBufferedTransport(transport)
+    protocol = TBinaryProtocol.TBinaryProtocol(transport)
+    client = Auth_Service.Client(protocol)
+    transport.open()
+    return client
 
 def main():
     f1=open(priv_key_filename,"r")
@@ -59,23 +81,16 @@ def main():
         print "trying"
         sys.stdout.flush()
         retry = False
-        try:     
-            transport = TSocket.TSocket(args.client_ip, USER_PORT)
-            transport.setTimeout(5000)
-            transport = TTransport.TBufferedTransport(transport)
-            protocol = TBinaryProtocol.TBinaryProtocol(transport)
-            client = Auth_Service.Client(protocol)
-            transport.open()
+        try:
+            client = get_new_client()
             rmsg = client.sign_up(user_id=USER_ID, user_pub_key=f2.read(), user_priv_key_enc=f1.read())
-            transport.close()
+            print rmsg
         except:
             print "crashed"
             sys.stdout.flush()
             retry=True
-            transport.close()
     f1.close()
     f2.close()    
-
 
     #s = smtplib.SMTP('localhost',2225)
     #s.ehlo()
@@ -85,24 +100,59 @@ def main():
 
     
     # Example sign up and sign in 
-    while(True):
+    retry = True
+    while(retry):
         print "trying"
+        retry = False
         sys.stdout.flush()
         try:     
-            transport = TSocket.TSocket(args.client_ip, USER_PORT)
-            transport.setTimeout(5000)
-            transport = TTransport.TBufferedTransport(transport)
-            protocol = TBinaryProtocol.TBinaryProtocol(transport)
-            client = Auth_Service.Client(protocol)
-            transport.open()
+            client = get_new_client()
             rmsg = client.sign_in(user_id=USER_ID, token=token)
-            transport.close()
+            print rmsg
+            sys.stdout.flush()
+
             break
         except:
             print "timed out"
             sys.stdout.flush()
-            transport.close()
             
+
+    
+    print AES.block_size
+    iv = Random.new().read(AES.block_size)
+    
+    key1 = RSA.generate(2048)
+    signer1 = PKCS1_v1_5.new(key1)
+    pub_key1 = key1.publickey().exportKey('PEM')
+    priv_key1 = key1.exportKey('PEM')
+    password1 = "password11111111"
+    cipher1 = AES.new(password1, AES.MODE_CFB, iv)
+    priv_key_enc1 = b64encode(cipher1.encrypt(priv_key1))
+
+    client = get_new_client()
+    sign_up_res = client.sign_up(user_id="new_user",
+                                 user_pub_key=pub_key1,
+                                 user_priv_key_enc=priv_key_enc1)
+
+    print sign_up_res
+
+    key2 = RSA.generate(2048)
+    pub_key2 = key2.publickey().exportKey('PEM')
+    priv_key2 = key2.exportKey('PEM')
+    password1 = "password22222222"
+    cipher2 = AES.new(password1, AES.MODE_CFB, iv)
+    priv_key_enc2 = b64encode(cipher2.encrypt(priv_key2))
+    sig = sign_func(signer1, pub_key2)
+    change_credentials_res = client.change_credentials(user_id="new_user",
+                                                       new_user_pub_key=pub_key2,
+                                                       new_user_priv_key_enc=priv_key_enc2,
+                                                       sig=sig)
+    
+    print change_credentials_res
+
+                                     
+    exit()
+    
     print rmsg.sign_in_certs
     sign_in_certs = [[cert.node_pub_key, cert.sig] for cert in rmsg.sign_in_certs]
     auth_str = b64encode(json.dumps({'id':USER_ID, 'pub_key':rmsg.user_pub_key,'signature':sign_in_certs}))

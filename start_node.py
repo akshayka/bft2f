@@ -706,6 +706,28 @@ class BFT2F_Node(DatagramProtocol):
                                 user_priv_key_enc=user_store_ent.user_priv_key_enc,
                                 token=op.token,
                                 sign_in_cert=sign_in_cert)
+        elif op.type == CHANGE_CRED:
+            if op.user_id not in self.user_store:
+                return BFT2f_OP_RES(type=BFT2f_OP_RES.USER_ID_NOT_FOUND,
+                                    op_type=op.type,
+                                    user_id=op.user_id)
+
+            user_store_ent = self.user_store.get(op.user_id)
+            signer = PKCS1_v1_5.new(RSA.importKey(user_store_ent.user_pub_key))
+
+            if not self.verify_func(signer, op.sig, op.new_user_pub_key):
+                return BFT2f_OP_RES(type=BFT2f_OP_RES.INVALID_CRED_CHANGE,
+                                    op_type=op.type,
+                                    user_id=op.user_id)
+            # Update user_store entry
+            self.user_store[op.user_id] = UserStoreEntry(user_pub_key=op.new_user_pub_key,
+                                                         user_priv_key_enc=op.new_user_priv_key_enc)
+
+            return BFT2f_OP_RES(type=BFT2f_OP_RES.SUCCESS,
+                                op_type=op.type,
+                                user_id=op.user_id,
+                                user_pub_key=op.new_user_pub_key,
+                                user_priv_key_enc=op.new_user_priv_key_enc)
 
     def make_checkpoint(self, n):
         hcd_n = self.T[n]
@@ -731,7 +753,7 @@ class BFT2F_Node(DatagramProtocol):
 
     def versions_list_match(self, versions):        
         for v in verions:
-            if not versions_match(v, versions[0]):
+            if not self.versions_match(v, versions[0]):
                 return False
         return True
 

@@ -52,20 +52,24 @@ class Auth_Service_Handler:
         USER_REQUESTS[req_id][0].wait()
         
         reps = USER_REQUESTS[req_id][1]
+        if reps[0].res.type != BFT2f_OP_RES.SUCCESS:
+            return Auth_Service_Sign_In_Res(status=Auth_Service_Res_Status.Failed,
+                                            user_id=user_id)
+                                            
+
         # Extract sign_in_certs (from protobufs to thrift)
         sign_in_certs = []
         for rep in reps:
             sign_in_certs.append(Sign_In_Cert(node_pub_key=rep.res.sign_in_cert.node_pub_key,
                                               sig=rep.res.sign_in_cert.sig))
 
-        return Auth_Service_Sign_In_Res(user_id=user_id,
+        return Auth_Service_Sign_In_Res(status=Auth_Service_Res_Status.Success,
+                                        user_id=user_id,
                                         user_pub_key=reps[0].res.user_pub_key,
                                         user_priv_key_enc=reps[0].res.user_priv_key_enc,
                                         sign_in_certs=sign_in_certs)
 
     def sign_up(self, user_id, user_pub_key, user_priv_key_enc):
-        print "sign up on cient"
-        sys.stdout.flush()
         req_id = user_id
         USER_REQUESTS[req_id] = [threading.Event(), []]
         # Make a call to bft2f
@@ -73,11 +77,40 @@ class Auth_Service_Handler:
 
         # Wait untill bft2f comes up with a response(2f + 1)
         USER_REQUESTS[req_id][0].wait()
-        
-        
-        return Auth_Service_Sign_Up_Res(user_id=user_id,
+        reps = USER_REQUESTS[req_id][1]
+
+        if reps[0].res.type != BFT2f_OP_RES.SUCCESS:
+            return Auth_Service_Sign_Up_Res(status=Auth_Service_Res_Status.Failed,
+                                            user_id=user_id)
+                
+        return Auth_Service_Sign_Up_Res(status=Auth_Service_Res_Status.Success,
+                                        user_id=user_id,
                                         user_pub_key=user_pub_key,
                                         user_priv_key_enc=user_priv_key_enc)
+
+    def change_credentials(self, user_id, new_user_pub_key, new_user_priv_key_enc, sig):
+        req_id = user_id
+        USER_REQUESTS[req_id] = [threading.Event(), []]
+        # Make a call to bft2f
+        twisted_client.bft2f_change_credentials(user_id, new_user_pub_key, new_user_priv_key_enc,
+                                                sig)
+
+        # Wait untill bft2f comes up with a response(2f + 1)
+        USER_REQUESTS[req_id][0].wait()
+
+        reps = USER_REQUESTS[req_id][1]
+
+        if reps[0].res.type != BFT2f_OP_RES.SUCCESS:
+            return Auth_Service_Change_Credentials_Res(status=Auth_Service_Res_Status.Failed,
+                                                       user_id=user_id)
+        
+        
+        return Auth_Service_Change_Credentials_Res(status=Auth_Service_Res_Status.Success,
+                                                   user_id=user_id,
+                                                   new_user_pub_key=new_user_pub_key,
+                                                   new_user_priv_key_enc=new_user_priv_key_enc)
+
+
 
 
 class BFT2F_Client(DatagramProtocol):
@@ -119,6 +152,22 @@ class BFT2F_Client(DatagramProtocol):
         msg.sig = self.sign_func(msg.SerializeToString())
         self.transport.write(msg.SerializeToString(), (MULTICAST_ADDR, BFT2F_PORT))
 
+
+    def bft2f_change_credentials(self, user_id, new_user_pub_key, new_user_priv_key_enc, sig):
+        msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.REQUEST,
+                            op=BFT2F_OP(type=CHANGE_CRED,
+                                        user_id=user_id,
+                                        new_user_pub_key=new_user_pub_key,
+                                        new_user_priv_key_enc=new_user_priv_key_enc,
+                                        sig=sig),
+                            ts=self.make_ts(),
+                            client_id=self.client_id,
+                            version=self.version,
+                            sig='')
+
+        msg.sig = self.sign_func(msg.SerializeToString())
+        self.transport.write(msg.SerializeToString(), (MULTICAST_ADDR, BFT2F_PORT))
+
     def bft2f_sign_in(self, user_id, token):
         msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.REQUEST,
                             op=BFT2F_OP(type=SIGN_IN, user_id=user_id, token=token),
@@ -143,12 +192,7 @@ class BFT2F_Client(DatagramProtocol):
             print "valid signature from %d" % msg.node_id
             sys.stdout.flush()
 
-        if msg.res.type != BFT2f_OP_RES.SUCCESS:
-            print "Request did not succeed, according to %d" % msg.node_id
-            sys.stdout.flush()
-            return
-        
-        if msg.res.op_type == SIGN_UP:
+        if msg.res.op_type == SIGN_UP or msg.res.op_type == CHANGE_CRED:
             req_id = msg.res.user_id
         elif msg.res.op_type == SIGN_IN:
             req_id = msg.res.user_id + msg.res.token
@@ -187,7 +231,6 @@ class BFT2F_Client(DatagramProtocol):
         return False
 
     def sign_func(self, data):
-        #return ""
         digest = SHA.new(data)
         sign = self.private_key.sign(digest) 
         return b64encode(sign)
