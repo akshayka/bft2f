@@ -48,6 +48,7 @@ class BFT2F_Node(DatagramProtocol):
         self.replay_cache = {}
 
         self.highest_accepted_n = 0
+        self.last_committed_n = 0
 
         # only accept prepare, commit messages with sequence numbers between
         # low_water_mark and high_water_mark
@@ -166,8 +167,6 @@ class BFT2F_Node(DatagramProtocol):
         self.transport.joinGroup(MULTICAST_ADDR)
 
     def datagramReceived(self, datagram, address):
-        if self.node_id == 0:
-            return
         self.lock.acquire()
         msg = BFT2F_MESSAGE()
         msg.ParseFromString(datagram)
@@ -206,7 +205,7 @@ class BFT2F_Node(DatagramProtocol):
             self.printv("Recieved a NEW_VIEW")
             self.handle_new_view(msg, address)
         elif msg.msg_type == BFT2F_MESSAGE.FAST_FORWARD_REQUEST:
-            self.printv("Recieved a FAST_FORWARD_REQUEST")
+            self.printv("Recieved a FAST_FORWARD_REQUEST from %d" % msg.node_id)
             self.handle_fast_forward_req(msg, address)
         elif msg.msg_type == BFT2F_MESSAGE.FAST_FORWARD_REPLY:
             self.printv("Recieved a FAST_FORWARD_REPLY")
@@ -241,7 +240,7 @@ class BFT2F_Node(DatagramProtocol):
             # TODO: Should update our highest_accepted_n!
             pp_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.PRE_PREPARE,
                                             node_id=self.node_id,
-                                            view=self.V[self.node_id].view,
+                                            view=self.view,
                                             n=self.highest_accepted_n + 1,
                                             req_D=self.digest_func(msg.SerializeToString()),
                                             sig="")
@@ -304,14 +303,12 @@ class BFT2F_Node(DatagramProtocol):
 
         # Only commit this message if there are no pending requests
         # with lower sequence numbers
-        last_committed_n = self.V[self.node_id].n
         pending_n = [n for n in self.pre_prepare_msgs.keys()\
-                        if n > last_committed_n and n != msg.n]
+                        if n > self.last_committed_n and n != msg.n]
         if len(pending_n) > 0 and msg.n > min(pending_n):
             self.printv('ignored pending n: %d, min: %d' %
                         (msg.n, min(pending_n)))
             return
-
         pending_n = [msg.n] + sorted(pending_n)
         self.printv(pending_n)
         for n in pending_n:
@@ -341,19 +338,27 @@ class BFT2F_Node(DatagramProtocol):
     def handle_commit(self, msg, address):
         #TODO check if HCD is valid
 
+        # We already updated our own version vector when we prepared
+        # this request
+        if self.node_id == msg.node_id:
+            return
+
         if not self.seqno_in_bounds(msg.version.n):
             self.printv('oob commit')
             return
 
         self.V[msg.node_id] = msg.version
-        matching_versions = [v for v in self.V if self.versions_match(v, msg.version)]
+        matching_versions = [v for v in self.V\
+                                if self.versions_match(v, msg.version)]
 
         if self.versions_match(self.V[self.node_id], msg.version) and\
-                len(matching_versions) == 2*F + 1:
+                len(matching_versions) == 2 * F + 1:
+            # Updating the history entry to include the commit proof
             self.T[msg.n] = HistoryEntry(hcd=self.T[msg.n].hcd,
                                          matching_versions=matching_versions)
             r_msg = self.request_msgs[self.pre_prepare_msgs[msg.version.n].req_D]
             res = self.execute_op(r_msg.op)
+            self.last_committed_n = msg.n
             self.cancel_timer() 
             client_id = r_msg.client_id
             rp_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.REPLY,
@@ -367,8 +372,6 @@ class BFT2F_Node(DatagramProtocol):
             self.replay_cache[r_msg.client_id] = CacheEntry(req=r_msg, rep=rp_msg)
             self.printv("replying to %s %s" % (client_id, PORT))
             self.send_msg(rp_msg, self.client_addr[client_id])
-
-            # condition variable: 
 
             # TODO According to the original paper, we generate
             # a checkpoint 'when a request with a sequence number divisible
@@ -412,7 +415,7 @@ class BFT2F_Node(DatagramProtocol):
             if self.valid_view_change(msg):
                 self.printv('Updating state!')
                 self.update_view_change_state(msg)
-            elif self.version_dominates(msg.version, p_version):
+            elif self.version_dominates_strictly(msg.version, p_version):
                 self.printv('Fast forwarding!')
                 self.request_fast_forward(address)
                 self.pending_view_change_msgs[msg.node_id] = msg
@@ -537,7 +540,9 @@ class BFT2F_Node(DatagramProtocol):
             if not equiv_prepares(O.get(pp_msg.n), pp_msg):
                 return
 
-        if self.version_dominates(msg.version, self.V[self.node_id]):
+        if self.version_dominates_strictly(msg.version, self.V[self.node_id]):
+            self.printv('dominator ' + str(msg.version))
+            self.printv('me ' + str(self.V[self.node_id]))
             self.pending_new_view_msg = msg
             self.request_fast_forward(address)
             return
@@ -584,6 +589,7 @@ class BFT2F_Node(DatagramProtocol):
     def handle_fast_forward_req(self, msg, address):
         req_proofs = []
         r_version = self.V[self.node_id]        
+        # TODO
         if self.version_dominates(r_version, msg.version) and\
                 r_version.n in self.T and self.T[n_version.n].hcd == r_version.hcd and\
                 msg.version.n in self.T and self.T[msg.version.n].hcd == msg.version.hcd:
@@ -650,9 +656,14 @@ class BFT2F_Node(DatagramProtocol):
 
         return True
 
+    # returns true if and only if v1 dominates v2
     def version_dominates(self, v1, v2):
         return v1.view >= v2.view and\
             ((v1.n == v2.n and v1.hcd == v2.hcd) or v1.n > v2.n)
+
+    # returns true if and only if v1 dominates v2 strictly
+    def version_dominates_strictly(self, v1, v2):
+        return v1.view > v2.view or (v1.view == v2.view and v1.n > v2.n)
 
     def start_timer(self):
         if self.timer is None:

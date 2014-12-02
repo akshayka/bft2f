@@ -140,11 +140,11 @@ class BFT2F_Client(DatagramProtocol):
             sys.stdout.flush()
             return
         else:
-            print "valid signature"
+            print "valid signature from %d" % msg.node_id
             sys.stdout.flush()
 
         if msg.res.type != BFT2f_OP_RES.SUCCESS:
-            print "Request did not succeed"
+            print "Request did not succeed, according to %d" % msg.node_id
             sys.stdout.flush()
             return
         
