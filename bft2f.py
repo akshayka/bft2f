@@ -38,6 +38,7 @@ class BftTopo(Topo):
 
         client = self.addHost('client')
         self.addLink(client, s0)
+        self.addLink(self.addHost('app'), s0)
         user = self.addHost('user')
         self.addLink(user, s0)
 
@@ -63,8 +64,15 @@ def start_client(net):
 def start_user(net):
     user = net.getNodeByName('user')
     client = net.getNodeByName('client')
-    user.cmd("route add -net default dev client-eth0")
-    popens[user] = client.popen('python start_user.py --client_ip=%s 2>&1' % (client.IP()),
+    app = net.getNodeByName('app')
+    user.cmd("route add -net default dev user-eth0")
+    popens[user] = client.popen('python start_user.py --client_ip=%s  --app_ip=%s 2>&1' % (client.IP(),app.IP()),
+                                  shell=True, preexec_fn=os.setsid)
+
+def start_app(net):
+    app = net.getNodeByName('app')
+    app.cmd("route add -net default dev app-eth0;cd Haraka")
+    popens[app] = app.popen('cd Haraka; nuhup node haraka.js 2>&1',
                                   shell=True, preexec_fn=os.setsid)
     
 def main():
@@ -81,6 +89,8 @@ def main():
 
     start_nodes(net, args.verbose)
     start_client(net)
+    start_app(net)
+
     #CLI(net)
 
     sleep(2)

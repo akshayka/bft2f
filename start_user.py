@@ -23,16 +23,19 @@ from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
 
-# USER_ID = "test"
-# USER_PW = "noseparecebien"
-# CLIENT_ADDR = "228.0.0.5"
-# BFT2F_PORT = 8005
-# USER_PORT = 9090
+USER_ID = "test"
+USER_PW = "noseparecebien"
+CLIENT_ADDR = "228.0.0.5"
+BFT2F_PORT = 8005
+USER_PORT = 9090
 
 # F = 2
 
 parser = ArgumentParser()
 parser.add_argument('--client_ip', '-cp',
+                    type=str,
+                    required=True)
+parser.add_argument('--app_ip', '-ap',
                     type=str,
                     required=True)
 args = parser.parse_args()
@@ -62,16 +65,6 @@ def sign_func(signer, data):
     sign = signer.sign(digest) 
     return b64encode(sign)
 
-
-def get_new_client():
-    transport = TSocket.TSocket(args.client_ip, USER_PORT)
-    transport.setTimeout(5000)
-    transport = TTransport.TBufferedTransport(transport)
-    protocol = TBinaryProtocol.TBinaryProtocol(transport)
-    client = Auth_Service.Client(protocol)
-    transport.open()
-    return client
-
 def main():
     f1=open(priv_key_orig_filename,"r")
     f2=open(pub_key_orig_filename,"r")
@@ -82,39 +75,47 @@ def main():
         sys.stdout.flush()
         retry = False
         try:
-            client = get_new_client()
+            transport = TSocket.TSocket(args.client_ip, USER_PORT)
+            transport.setTimeout(5000)
+            transport = TTransport.TBufferedTransport(transport)
+            protocol = TBinaryProtocol.TBinaryProtocol(transport)
+            client = Auth_Service.Client(protocol)
+            transport.open()
             rmsg = client.sign_up(user_id=USER_ID, user_pub_key=f2.read(), user_priv_key_enc=f1.read())
-            print rmsg
+            transport.close()
         except:
             print "crashed"
             sys.stdout.flush()
             retry=True
+            #transport.close()
     f1.close()
     f2.close()    
 
-    #s = smtplib.SMTP('localhost',2225)
-    #s.ehlo()
-    #res=s.docmd('auth cram-cert')
-    token = "token"#b64decode(res[1])
-
+    s = smtplib.SMTP(args.app_ip,2225)
+    s.ehlo()
+    res=s.docmd('auth cram-cert')
+    token = b64decode(res[1])
 
     
-    # Example sign up and sign in 
     retry = True
     while(retry):
         print "trying"
-        retry = False
         sys.stdout.flush()
+        retry = False
         try:     
-            client = get_new_client()
+            transport = TSocket.TSocket(args.client_ip, USER_PORT)
+            transport.setTimeout(5000)
+            transport = TTransport.TBufferedTransport(transport)
+            protocol = TBinaryProtocol.TBinaryProtocol(transport)
+            client = Auth_Service.Client(protocol)
+            transport.open()
             rmsg = client.sign_in(user_id=USER_ID, token=token)
-            print rmsg
-            sys.stdout.flush()
-
-            break
+            transport.close()
         except:
-            print "timed out"
+            print "crashed"
             sys.stdout.flush()
+            retry=True
+            #transport.close()
     
     print rmsg.sign_in_certs
     sign_in_certs = [[cert.node_pub_key, cert.sig] for cert in rmsg.sign_in_certs]
