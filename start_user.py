@@ -94,13 +94,10 @@ def main():
 
 if __name__ == '__main__':
     
-
     # Example sign up and sign in 
-    retry = True
-    while(retry):
+    while(True):
         print "trying"
         sys.stdout.flush()
-        retry = False
         try:     
             transport = TSocket.TSocket(args.client_ip, USER_PORT)
             transport.setTimeout(5000)
@@ -108,17 +105,19 @@ if __name__ == '__main__':
             protocol = TBinaryProtocol.TBinaryProtocol(transport)
             client = Auth_Service.Client(protocol)
             transport.open()
-            res = client.sign_up(user_id="user_id", user_pub_key="user_pub_key", user_priv_key_enc="user_priv_key_enc")
+            sign_up_res = client.sign_up(user_id="user_id", user_pub_key="user_pub_key", user_priv_key_enc="user_priv_key_enc")
+            sign_in_res = client.sign_in(user_id="user_id", token="token")
             transport.close()
+            break
         except:
-            print "crashed"
+            print "timed out"
             sys.stdout.flush()
-            retry=True
             transport.close()
 
             
 
-    print res
+    print sign_up_res
+    print sign_in_res
     sys.stdout.flush()
 
     #res = client.sign_in(user_id="user_id", token="token")

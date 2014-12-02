@@ -208,7 +208,6 @@ def start_thrift():
     tfactory = TTransport.TBufferedTransportFactory()
     pfactory = TBinaryProtocol.TBinaryProtocolFactory()
     server = TServer.TThreadedServer(processor, transport, tfactory, pfactory)
-    #server = TServer.TSimpleServer(processor, transport, tfactory, pfactory)
     server.serve()
 
 

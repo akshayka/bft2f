@@ -306,8 +306,8 @@ class BFT2F_Node(DatagramProtocol):
         pending_n = [n for n in self.pre_prepare_msgs.keys()\
                         if n > self.last_committed_n and n != msg.n]
         if len(pending_n) > 0 and msg.n > min(pending_n):
-            self.printv('ignored pending n: %d, min: %d' %
-                        (msg.n, min(pending_n)))
+            self.printv('ignored pending n: %d, min: %d, lcn: %d' %
+                        (msg.n, min(pending_n), self.last_committed_n))
             return
         pending_n = [msg.n] + sorted(pending_n)
         self.printv(pending_n)
@@ -336,8 +336,6 @@ class BFT2F_Node(DatagramProtocol):
 
     # commit: < version-vector-entry >
     def handle_commit(self, msg, address):
-        #TODO check if HCD is valid
-
         # We already updated our own version vector when we prepared
         # this request
         if self.node_id == msg.node_id:
@@ -354,11 +352,11 @@ class BFT2F_Node(DatagramProtocol):
         if self.versions_match(self.V[self.node_id], msg.version) and\
                 len(matching_versions) == 2 * F + 1:
             # Updating the history entry to include the commit proof
-            self.T[msg.n] = HistoryEntry(hcd=self.T[msg.n].hcd,
+            self.T[msg.version.n] = HistoryEntry(hcd=self.T[msg.version.n].hcd,
                                          matching_versions=matching_versions)
             r_msg = self.request_msgs[self.pre_prepare_msgs[msg.version.n].req_D]
             res = self.execute_op(r_msg.op)
-            self.last_committed_n = msg.n
+            self.last_committed_n = msg.version.n
             self.cancel_timer() 
             client_id = r_msg.client_id
             rp_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.REPLY,
@@ -565,7 +563,6 @@ class BFT2F_Node(DatagramProtocol):
             vc_msg.sig = signature
 
         return True
-
 
     def process_new_view(self, msg):
         self.printv('New View: me %d view %d' % (self.node_id, msg.view))
