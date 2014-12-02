@@ -12,8 +12,6 @@ from argparse import ArgumentParser
 
 from Crypto.PublicKey import RSA 
 from Crypto.Signature import PKCS1_v1_5
-from Crypto.Cipher import AES
-from Crypto import Random
 from Crypto.Hash import SHA 
 from base64 import b64encode, b64decode
 from twisted.internet import protocol, defer, endpoints, task
@@ -25,13 +23,13 @@ from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
 
-USER_ID = "test"
-USER_PW = "noseparecebien"
-CLIENT_ADDR = "228.0.0.5"
-BFT2F_PORT = 8005
-USER_PORT = 9090
+# USER_ID = "test"
+# USER_PW = "noseparecebien"
+# CLIENT_ADDR = "228.0.0.5"
+# BFT2F_PORT = 8005
+# USER_PORT = 9090
 
-F = 2
+# F = 2
 
 parser = ArgumentParser()
 parser.add_argument('--client_ip', '-cp',
@@ -48,8 +46,10 @@ PORT = 8000
 BUFFER_SIZE = 1024
 email_sender="jongho271828@gmail.com"
 email_receiver="peaces1@gmail.com"
-priv_key_filename="/tmp/user0key_priv.pem"
-pub_key_filename="/tmp/user0key_pub.pem"
+priv_key_orig_filename="./certs/user0_enc.key"
+pub_key_orig_filename="./certs/user0.crt"
+priv_key_tmp_filename="/tmp/user0key_priv.pem"
+pub_key_tmp_filename="/tmp/user0key_pub.pem"
 
 def verify_func(signer, signature, data):
     digest = SHA.new(data) 
@@ -73,8 +73,8 @@ def get_new_client():
     return client
 
 def main():
-    f1=open(priv_key_filename,"r")
-    f2=open(pub_key_filename,"r")
+    f1=open(priv_key_orig_filename,"r")
+    f2=open(pub_key_orig_filename,"r")
     # sign up
     retry = True
     while(retry):
@@ -115,43 +115,6 @@ def main():
         except:
             print "timed out"
             sys.stdout.flush()
-            
-
-    
-    print AES.block_size
-    iv = Random.new().read(AES.block_size)
-    
-    key1 = RSA.generate(2048)
-    signer1 = PKCS1_v1_5.new(key1)
-    pub_key1 = key1.publickey().exportKey('PEM')
-    priv_key1 = key1.exportKey('PEM')
-    password1 = "password11111111"
-    cipher1 = AES.new(password1, AES.MODE_CFB, iv)
-    priv_key_enc1 = b64encode(cipher1.encrypt(priv_key1))
-
-    client = get_new_client()
-    sign_up_res = client.sign_up(user_id="new_user",
-                                 user_pub_key=pub_key1,
-                                 user_priv_key_enc=priv_key_enc1)
-
-    print sign_up_res
-
-    key2 = RSA.generate(2048)
-    pub_key2 = key2.publickey().exportKey('PEM')
-    priv_key2 = key2.exportKey('PEM')
-    password1 = "password22222222"
-    cipher2 = AES.new(password1, AES.MODE_CFB, iv)
-    priv_key_enc2 = b64encode(cipher2.encrypt(priv_key2))
-    sig = sign_func(signer1, pub_key2)
-    change_credentials_res = client.change_credentials(user_id="new_user",
-                                                       new_user_pub_key=pub_key2,
-                                                       new_user_priv_key_enc=priv_key_enc2,
-                                                       sig=sig)
-    
-    print change_credentials_res
-
-                                     
-    exit()
     
     print rmsg.sign_in_certs
     sign_in_certs = [[cert.node_pub_key, cert.sig] for cert in rmsg.sign_in_certs]
@@ -162,11 +125,11 @@ def main():
     if res[0] != 235:
         print "Auth failed"
     key = RSA.importKey(rmsg.user_priv_key_enc,USER_PW)
-    f = open(priv_key_filename,'w')
+    f = open(priv_key_tmp_filename,'w')
     f.write(key.exportKey('PEM'))
     f.close()
     key = RSA.importKey(rmsg.user_pub_key)
-    f = open(pub_key_filename,'w')
+    f = open(pub_key_tmp_filename,'w')
     f.write(key.publickey().exportKey('PEM'))
     f.close()
     s.starttls(priv_key_filename,pub_key_filename)
