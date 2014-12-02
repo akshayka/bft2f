@@ -66,14 +66,14 @@ def start_user(net):
     client = net.getNodeByName('client')
     app = net.getNodeByName('app')
     user.cmd("route add -net default dev user-eth0")
-    popens[user] = client.popen('python start_user.py --client_ip=%s  --app_ip=%s 2>&1' % (client.IP(),app.IP()),
+    popens[user] = client.popen('python start_user.py --client_ip=%s --app_ip=%s 2>&1' % (client.IP(),app.IP()),
                                   shell=True, preexec_fn=os.setsid)
 
 def start_app(net):
     app = net.getNodeByName('app')
-    app.cmd("route add -net default dev app-eth0;cd Haraka")
-    popens[app] = app.popen('cd Haraka; nuhup node haraka.js 2>&1',
-                                  shell=True, preexec_fn=os.setsid)
+    app.cmd("route add -net default dev app-eth0")
+    popens[app] = app.popen('node haraka.js 2>&1',
+                                  shell=True, preexec_fn=os.setsid, cwd='./Haraka')
     
 def main():
     parser = ArgumentParser()

@@ -22,25 +22,10 @@ from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
-
-USER_ID = "test"
-USER_PW = "noseparecebien"
-CLIENT_ADDR = "228.0.0.5"
 BFT2F_PORT = 8005
 USER_PORT = 9090
 
 # F = 2
-
-parser = ArgumentParser()
-parser.add_argument('--client_ip', '-cp',
-                    type=str,
-                    required=True)
-parser.add_argument('--app_ip', '-ap',
-                    type=str,
-                    required=True)
-args = parser.parse_args()
-print "start user"
-
 
 USER_ID = "user0"
 USER_PW = "noseparecebien"
@@ -53,6 +38,17 @@ priv_key_orig_filename="./certs/user0_enc.key"
 pub_key_orig_filename="./certs/user0.crt"
 priv_key_tmp_filename="/tmp/user0key_priv.pem"
 pub_key_tmp_filename="/tmp/user0key_pub.pem"
+
+parser = ArgumentParser()
+parser.add_argument('--client_ip', '-cp',
+                    type=str,
+                    required=True)
+parser.add_argument('--app_ip', '-ap',
+                    type=str,
+                    required=True)
+args = parser.parse_args()
+print "start user"
+
 
 def verify_func(signer, signature, data):
     digest = SHA.new(data) 
@@ -82,6 +78,7 @@ def main():
             client = Auth_Service.Client(protocol)
             transport.open()
             rmsg = client.sign_up(user_id=USER_ID, user_pub_key=f2.read(), user_priv_key_enc=f1.read())
+            print rmsg
             transport.close()
         except:
             print "crashed"
@@ -91,9 +88,17 @@ def main():
     f1.close()
     f2.close()    
 
+    print "connecting to SMTP :" + args.app_ip
+    sys.stdout.flush()
     s = smtplib.SMTP(args.app_ip,2225)
-    s.ehlo()
-    res=s.docmd('auth cram-cert')
+    print "connected to SMTP :" + args.app_ip
+    sys.stdout.flush()
+    res = s.ehlo()
+    print res
+    sys.stdout.flush()
+    res = s.docmd('auth cram-cert')
+    print res
+    sys.stdout.flush()
     token = b64decode(res[1])
 
     
