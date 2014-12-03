@@ -35,9 +35,9 @@ BUFFER_SIZE = 1024
 email_sender="jongho271828@gmail.com"
 email_receiver="peaces1@gmail.com"
 priv_key_orig_filename="./certs/user0_enc2.key"
-pub_key_orig_filename="./certs/user0.pem"
-priv_key_tmp_filename="/tmp/user0key_priv.pem"
-pub_key_tmp_filename="/tmp/user0key_pub.pem"
+pub_key_orig_filename="./certs/user0.crt"
+priv_key_tmp_filename="/tmp/user0key_priv.key"
+pub_key_tmp_filename="/tmp/user0key_pub.crt"
 
 parser = ArgumentParser()
 parser.add_argument('--client_ip', '-cp',
@@ -131,15 +131,18 @@ def main():
     if res[0] != 235:
         print res
         print "Auth failed"
+    res = s.ehlo()
+    print res
+    sys.stdout.flush()   
     key = RSA.importKey(rmsg.user_priv_key_enc,USER_PW)
     f = open(priv_key_tmp_filename,'w')
     f.write(key.exportKey('PEM'))
     f.close()
-    key = RSA.importKey(rmsg.user_pub_key)
+    # key = RSA.importKey(rmsg.user_pub_key)
     f = open(pub_key_tmp_filename,'w')
-    f.write(key.publickey().exportKey('PEM'))
+    f.write(rmsg.user_pub_key)
     f.close()
-    s.starttls(priv_key_filename,pub_key_filename)
+    s.starttls(priv_key_tmp_filename,pub_key_tmp_filename)
     res = s.ehlo()
     print res
     sys.stdout.flush()
