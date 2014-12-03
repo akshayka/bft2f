@@ -800,6 +800,7 @@ class BFT2F_Node(DatagramProtocol):
             sign_in_cert = BFT2f_SIGN_IN_CERT(
                 node_pub_key=self.server_pubkeys[self.node_id]._key.exportKey(),
                 sig=self.sign(op.token + user_store_ent.user_pub_key))
+            self.printv("auth_str="+op.token + user_store_ent.user_pub_key)
 
             return BFT2f_OP_RES(type=BFT2f_OP_RES.SUCCESS,
                                 op_type=op.type,

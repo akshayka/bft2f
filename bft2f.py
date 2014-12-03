@@ -18,7 +18,7 @@ from argparse import ArgumentParser
 import signal
 
 NUMBER_NODES = 7
-RUN_DURATION = 25
+RUN_DURATION = 35
 popens = {}
 
 
