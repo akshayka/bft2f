@@ -86,15 +86,15 @@ def main():
     # This dumps the topology and how nodes are interconnected through
     # links.
     dumpNodeConnections(net.hosts)
-
+    start_app(net)
     start_nodes(net, args.verbose)
     start_client(net)
-    start_app(net)
 
     #CLI(net)
 
-    sleep(2)
+    sleep(5)
     start_user(net)
+    #CLI(net)
     endTime = time() + RUN_DURATION
     num_processes = len(popens)
     for h, line in pmonitor(popens, timeoutms=500):

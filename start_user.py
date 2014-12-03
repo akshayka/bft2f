@@ -34,8 +34,8 @@ PORT = 8000
 BUFFER_SIZE = 1024
 email_sender="jongho271828@gmail.com"
 email_receiver="peaces1@gmail.com"
-priv_key_orig_filename="./certs/user0_enc.key"
-pub_key_orig_filename="./certs/user0.crt"
+priv_key_orig_filename="./certs/user0_enc2.key"
+pub_key_orig_filename="./certs/user0.pem"
 priv_key_tmp_filename="/tmp/user0key_priv.pem"
 pub_key_tmp_filename="/tmp/user0key_pub.pem"
 
@@ -122,13 +122,14 @@ def main():
             retry=True
             #transport.close()
     
-    print rmsg.sign_in_certs
+    print rmsg
     sign_in_certs = [[cert.node_pub_key, cert.sig] for cert in rmsg.sign_in_certs]
     auth_str = b64encode(json.dumps({'id':USER_ID, 'pub_key':rmsg.user_pub_key,'signature':sign_in_certs}))
     print auth_str
     sys.stdout.flush()
     res=s.docmd(auth_str)
     if res[0] != 235:
+        print res
         print "Auth failed"
     key = RSA.importKey(rmsg.user_priv_key_enc,USER_PW)
     f = open(priv_key_tmp_filename,'w')
@@ -139,11 +140,14 @@ def main():
     f.write(key.publickey().exportKey('PEM'))
     f.close()
     s.starttls(priv_key_filename,pub_key_filename)
-    msg = MIMEText("cs244b test")
-    msg['Subject'] = "cs244b test"
-    msg['From'] = email_sender
-    msg['To'] = email_receiver
-    s.sendmail(email_sender, [email_receiver], msg.as_string())
+    res = s.ehlo()
+    print res
+    sys.stdout.flush()
+    # msg = MIMEText("cs244b test")
+    # msg['Subject'] = "cs244b test"
+    # msg['From'] = email_sender
+    # msg['To'] = email_receiver
+    # s.sendmail(email_sender, [email_receiver], msg.as_string())
     s.quit()
 
     # print res
