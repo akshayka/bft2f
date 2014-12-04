@@ -301,11 +301,23 @@ class BFT2F_Node(DatagramProtocol):
         """
         pre_prepare: <node-id, view, n, D(msg_n)>
         """
+        # Reject the message if any of the following hold:
+        # 1) This replica is the primary. It has already processed
+        #    the pre-prepare message.
+        # 2) This message is for a view different from our own.
+        # 3) This message is not from the primary.
+        # 4) This message's sequence number is too high or too low.
+        # 5) This message is for a request that we haven't yet seen.
+        #    TODO: The primary should retransmit pre-prepares to
+        #          account for this. -A
+        # 6) This replica has already accepted a different pre_prepare
+        #    for this sequence number.
         if self.node_id == self.primary(self.view) or\
+           self.view != msg.view or\
+           msg.node_id != self.primary(self.view) or\
            not self.seqno_in_bounds(msg.n) or\
            msg.n < self.highest_accepted_n or\
            msg.req_D not in self.request_msgs or\
-           self.view != msg.view or\
            (self.pre_prepare_msgs.get(msg.n) and\
                 self.pre_prepare_msgs.get(msg.n) != msg):
             self.printv('ignore pre_prepare')
@@ -327,15 +339,23 @@ class BFT2F_Node(DatagramProtocol):
         prepare: <node-id, view, n, D(msg_n)>
         """
         # Only process this prepare message if
-        #   1) its sequence number is in bounds and
-        #   2) we haven't seen it before
+        #   1) its sequence number is in bounds;
+        #   2) we haven't seen it before; and
+        #   3) its for our view
         if (not self.seqno_in_bounds(msg.n)) or\
-           msg in self.prepare_msgs.setdefault(msg.n, []):
+            msg in self.prepare_msgs.setdefault(msg.n, []) or\
+            self.view != msg.view:
             return
         self.prepare_msgs[msg.n].append(msg)
 
         # Only commit this message if there are no pending requests
         # with lower sequence numbers
+        #
+        # TODO: We should only enter the commit phase if all
+        # lower sequence numbers have been committed and executed.
+        # In particular, if I understand David correctly, do not
+        # enter the commit phase for seqno k if seqno k-1 has not yet
+        # been executed. If that's true, we'll have to change this logic. -A
         pending_n = [n for n in self.pre_prepare_msgs.keys()\
                            if n > self.highest_committed_n and n != msg.n]
         if len(pending_n) > 0 and msg.n > min(pending_n):
@@ -383,7 +403,7 @@ class BFT2F_Node(DatagramProtocol):
             return
 
         # Commit the operation if we have 2F + 1 matching versions for
-        # it, including our own
+        # it, including our own.
         self.V[msg.node_id] = msg.version
         matching_versions = [v for v in self.V\
                                 if self.versions_match(v, msg.version)]
