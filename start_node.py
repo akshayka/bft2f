@@ -306,7 +306,7 @@ class BFT2F_Node(DatagramProtocol):
         #    the pre-prepare message.
         # 2) This message is for a view different from our own.
         # 3) This message is not from the primary.
-        # 4) This message's sequence number is too high or too low.
+        # 4) This message's sequence number is too high
         # 5) This message is for a request that we haven't yet seen.
         #    TODO: The primary should retransmit pre-prepares to
         #          account for this. -A
@@ -316,7 +316,6 @@ class BFT2F_Node(DatagramProtocol):
            self.view != msg.view or\
            msg.node_id != self.primary(self.view) or\
            not self.seqno_in_bounds(msg.n) or\
-           msg.n < self.highest_accepted_n or\
            msg.req_D not in self.request_msgs or\
            (self.pre_prepare_msgs.get(msg.n) and\
                 self.pre_prepare_msgs.get(msg.n) != msg):
@@ -730,7 +729,7 @@ class BFT2F_Node(DatagramProtocol):
                                                      hcd=self.T[msg.n].hcd)
                 self.view = rp.matching_versions[0].view
                 self.highest_committed_n = rp.matching_versions[0].n
-                if self.highest_accepted_n > self.highest_accepted_n:
+                if self.highest_committed_n > self.highest_accepted_n:
                     self.highest_accepted_n = self.highest_committed_n
                 # Execute operation
                 self.execute_op(rp.req.op)
