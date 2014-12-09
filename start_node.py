@@ -169,7 +169,8 @@ class BFT2F_Node(DatagramProtocol):
         for n, pp_msg in self.pre_prepare_msgs.items():
             if n > self.V[self.node_id].n and\
                len(self.prepare_msgs.get(n, [])) >= 2 * F + 1:
-                P.append([pp_msg] + self.prepare_msgs[n])        
+                msg_list = BFT2F_MESSAGE_LIST(msgs=[pp_msg] + self.prepare_msgs[n])
+                P.append(msg_list)
 
         vc_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.VIEW_CHANGE,
                                node_id=self.node_id,
