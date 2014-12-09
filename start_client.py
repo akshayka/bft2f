@@ -198,16 +198,16 @@ class BFT2F_Client(DatagramProtocol):
             req_id = msg.res.user_id + msg.res.token
             
         # Added the new rep
-        USER_REQUESTS[req_id][1].append(msg)
-        # Check if there are 2F + 1 matching
-        matching_reps = self.matching_reps(USER_REQUESTS[req_id][1], msg)
+        if req_id in USER_REQUESTS:
+            USER_REQUESTS[req_id][1].append(msg)
+            # Check if there are 2F + 1 matching
+            matching_reps = self.matching_reps(USER_REQUESTS[req_id][1], msg)
 
-        if len(matching_reps) == 2 * F + 1:
-            self.version = msg.version
-            USER_REQUESTS[req_id][1] = matching_reps
-            # Unblock the user request
-            USER_REQUESTS[req_id][0].set()
-
+            if len(matching_reps) == 2 * F + 1:
+                self.version = msg.version
+                USER_REQUESTS[req_id][1] = matching_reps
+                # Unblock the user request
+                USER_REQUESTS[req_id][0].set()
         return
 
     def matching_reps(self, reps, new_rep):

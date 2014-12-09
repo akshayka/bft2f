@@ -588,7 +588,7 @@ class BFT2F_Node(DatagramProtocol):
         each from a unique replica.
         """
         for P_m in P:
-            cur_pp_msg = P_em[0]
+            cur_pp_msg = P_m[0]
             unique_p_msgs = list(set(P_m[1:]))
             if len(unique_p_msgs) < 2 * F + 1:
                 return False            
