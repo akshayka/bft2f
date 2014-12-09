@@ -347,23 +347,15 @@ class BFT2F_Node(DatagramProtocol):
             return
         self.prepare_msgs[msg.n].append(msg)
 
-        # Only commit this message if there are no pending requests
-        # with lower sequence numbers
-        #
-        # TODO: We should only enter the commit phase if all
-        # lower sequence numbers have been committed and executed.
-        # In particular, if I understand David correctly, do not
-        # enter the commit phase for seqno k if seqno k-1 has not yet
-        # been executed. If that's true, we'll have to change this logic. -A
-        pending_n = [n for n in self.pre_prepare_msgs.keys()\
-                           if n > self.highest_committed_n and n != msg.n]
-        if len(pending_n) > 0 and msg.n > min(pending_n):
-            self.printv('ignored pending n: %d, min: %d, hcn: %d' %
-                        (msg.n, min(pending_n), self.highest_committed_n))
+        # Only commit this message if all lower sequence numbers
+        # have been committed.
+        if msg.n != self.highest_committed_n + 1:
             return
 
         # Enter the commit phase for all prepared pending requests
         # in ascending sequence number order
+        pending_n = [n for n in self.pre_prepare_msgs.keys()\
+                           if n > self.highest_committed_n + 1]
         pending_n = [msg.n] + sorted(pending_n)
         for n in pending_n:
             if len(self.prepare_msgs.setdefault(n, [])) == 2 * F + 1:
