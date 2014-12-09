@@ -549,7 +549,7 @@ class BFT2F_Node(DatagramProtocol):
         for vc_msg in view_msgs:
             valid_vc_msg = True
             for P_m in vc_msg.P:
-                cur_pp_msg = P_em[0]                    
+                cur_pp_msg = P_m.msgs[0]
                 new_pp_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.PRE_PREPARE,
                                            node_id=self.node_id,
                                            view=vc_msg.view,
@@ -572,7 +572,7 @@ class BFT2F_Node(DatagramProtocol):
                     new_pp_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.PRE_PREPARE,
                                                node_id=self.node_id,
                                                view=vc_msg.view,
-                                               n=P_m[0].n,
+                                               n=P_m.msgs[0].n,
                                                req_D=self.NO_OP_REQUEST_D,
                                                sig="")
                     new_pp_msg.sig = self.sign(new_pp_msg.SerializeToString())
@@ -588,8 +588,10 @@ class BFT2F_Node(DatagramProtocol):
         each from a unique replica.
         """
         for P_m in P:
-            cur_pp_msg = P_em[0]
-            unique_p_msgs = list(set(P_m[1:]))
+            cur_pp_msg = P_m.msgs[0]
+            self.printv("what the hell is this")
+            self.printv(P_m.msgs)
+            unique_p_msgs = list(set(P_m.msgs[1:]))
             if len(unique_p_msgs) < 2 * F + 1:
                 return False            
             for u_p_msg in unique_p_msg:
