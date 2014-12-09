@@ -18,32 +18,27 @@ from argparse import ArgumentParser
 import signal
 
 NUMBER_NODES = 7
+NUMBER_USERS = 3
 RUN_DURATION = 35
 popens = {}
 
+LINK_BW=10
+LINK_DELAY='10ms'
+LINK_LOSS=10
 
 class BftTopo(Topo):
     def __init__(self, n=2):
         super(BftTopo, self).__init__()
         s0 = self.addSwitch('s0')
-
         # create hosts
-        hosts = []
-        for i in range(0, NUMBER_NODES):
-            h = self.addHost('h%d' % (i))
-            hosts.append(h)
-
-        for h in hosts:
-            self.addLink(h, s0)
-
-        client = self.addHost('client')
-        self.addLink(client, s0)
-        self.addLink(self.addHost('app'), s0)
-        user = self.addHost('user')
-        self.addLink(user, s0)
-
+        for i in xrange(0, NUMBER_NODES):
+            # self.addLink(h, s0, bw=LINK_BW, delay=LINK_DELAY, loss=LINK_LOSS)
+            self.addLink(self.addHost('h%d' % (i)), s0, bw=LINK_BW, delay=LINK_DELAY)
+        self.addLink(self.addHost('client'), s0, bw=LINK_BW, delay=LINK_DELAY)
+        self.addLink(self.addHost('app'), s0, bw=LINK_BW, delay=LINK_DELAY)
+        for i in xrange(0, NUMBER_USERS):
+            self.addLink(self.addHost('u%d' % (i)), s0, bw=LINK_BW, delay=LINK_DELAY)
         return
-
 
 def start_nodes(net, verbose):
     for i in range(0, NUMBER_NODES):
@@ -62,12 +57,12 @@ def start_client(net):
                                   shell=True, preexec_fn=os.setsid)
 
 def start_user(net):
-    user = net.getNodeByName('user')
     client = net.getNodeByName('client')
     app = net.getNodeByName('app')
-    user.cmd("route add -net default dev user-eth0")
-    popens[user] = client.popen('python start_user.py --client_ip=%s --app_ip=%s 2>&1' % (client.IP(),app.IP()),
-                                  shell=True, preexec_fn=os.setsid)
+    for i in xrange(0, NUMBER_USERS):
+        user = net.getNodeByName('u%d'%(i))
+        user.cmd("route add -net default dev u%d-eth0" % (i))
+        popens[user] = client.popen('python start_user.py --user_id=%d --client_ip=%s --app_ip=%s 2>&1' % (i,client.IP(),app.IP()), shell=True, preexec_fn=os.setsid)
 
 def start_app(net):
     app = net.getNodeByName('app')

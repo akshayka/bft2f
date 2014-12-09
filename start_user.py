@@ -4,6 +4,7 @@ sys.path.append('gen-py')
 from auth_service import Auth_Service
 from auth_service.ttypes import *
 
+import time
 import smtplib
 from email.mime.text import MIMEText
 import json
@@ -25,19 +26,11 @@ from thrift.protocol import TBinaryProtocol
 BFT2F_PORT = 8005
 USER_PORT = 9090
 
-# F = 2
-
-USER_ID = "user0"
-USER_PW = "noseparecebien"
 CLIENT_ADDR = "228.0.0.5"
 PORT = 8000
 BUFFER_SIZE = 1024
-email_sender="jongho271828@gmail.com"
-email_receiver="peaces1@gmail.com"
-priv_key_orig_filename="./certs/user0_enc2.key"
-pub_key_orig_filename="./certs/user0.crt"
-priv_key_tmp_filename="/tmp/user0key_priv.key"
-pub_key_tmp_filename="/tmp/user0key_pub.crt"
+# email_sender="jongho271828@gmail.com"
+# email_receiver="peaces1@gmail.com"
 
 parser = ArgumentParser()
 parser.add_argument('--client_ip', '-cp',
@@ -46,7 +39,19 @@ parser.add_argument('--client_ip', '-cp',
 parser.add_argument('--app_ip', '-ap',
                     type=str,
                     required=True)
+parser.add_argument('--user_id', '-n',
+                    type=long,
+                    required=True)
 args = parser.parse_args()
+
+#init constants
+USER_ID = "user%d"%(args.user_id)
+USER_PW = "noseparecebien"
+priv_key_orig_filename="./certs/user%d.key"%(args.user_id)
+pub_key_orig_filename="./certs/user%d.crt"%(args.user_id)
+priv_key_tmp_filename="/tmp/user%dkey_priv.key"%(args.user_id)
+pub_key_tmp_filename="/tmp/user%dkey_pub.crt"%(args.user_id)
+
 print "start user"
 
 
@@ -77,7 +82,9 @@ def main():
             protocol = TBinaryProtocol.TBinaryProtocol(transport)
             client = Auth_Service.Client(protocol)
             transport.open()
+            my_time=time.time()
             rmsg = client.sign_up(user_id=USER_ID, user_pub_key=f2.read(), user_priv_key_enc=f1.read())
+            print "Sign up latency : "+str(time.time()-my_time)
             print rmsg
             transport.close()
         except:
@@ -114,7 +121,9 @@ def main():
             protocol = TBinaryProtocol.TBinaryProtocol(transport)
             client = Auth_Service.Client(protocol)
             transport.open()
+            my_time=time.time()
             rmsg = client.sign_in(user_id=USER_ID, token=token)
+            print "Sign in latency : "+str(time.time()-my_time)
             transport.close()
         except:
             print "crashed"
@@ -152,11 +161,6 @@ def main():
     # msg['To'] = email_receiver
     # s.sendmail(email_sender, [email_receiver], msg.as_string())
     s.quit()
-
-    # print res
-    # sys.stdout.flush()
-    #get priv_key, pubkey, signature
-    #JSON + base64
 
 if __name__ == '__main__':
     main()
