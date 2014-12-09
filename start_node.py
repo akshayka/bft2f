@@ -589,8 +589,6 @@ class BFT2F_Node(DatagramProtocol):
         """
         for P_m in P:
             cur_pp_msg = P_m.msgs[0]
-            self.printv("what the hell is this")
-            self.printv(P_m.msgs)
             unique_p_msgs = list(set(P_m.msgs[1:]))
             if len(unique_p_msgs) < 2 * F + 1:
                 return False            

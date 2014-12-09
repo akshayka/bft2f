@@ -18,7 +18,8 @@ from argparse import ArgumentParser
 import signal
 
 NUMBER_NODES = 7
-NUMBER_USERS = 3
+NUMBER_CLIENTS = 2
+NUMBER_USERS = 2
 RUN_DURATION = 35
 popens = {}
 
@@ -32,12 +33,12 @@ class BftTopo(Topo):
         s0 = self.addSwitch('s0')
         # create hosts
         for i in xrange(0, NUMBER_NODES):
-            # self.addLink(h, s0, bw=LINK_BW, delay=LINK_DELAY, loss=LINK_LOSS)
             self.addLink(self.addHost('h%d' % (i)), s0, bw=LINK_BW, delay=LINK_DELAY)
-        self.addLink(self.addHost('client'), s0, bw=LINK_BW, delay=LINK_DELAY)
-        self.addLink(self.addHost('app'), s0, bw=LINK_BW, delay=LINK_DELAY)
+        for i in xrange(0, NUMBER_CLIENTS):
+            self.addLink(self.addHost('c%d' % (i)), s0, bw=LINK_BW, delay=LINK_DELAY)
         for i in xrange(0, NUMBER_USERS):
             self.addLink(self.addHost('u%d' % (i)), s0, bw=LINK_BW, delay=LINK_DELAY)
+        self.addLink(self.addHost('app'), s0, bw=LINK_BW, delay=LINK_DELAY)
         return
 
 def start_nodes(net, verbose):
@@ -51,16 +52,17 @@ def start_nodes(net, verbose):
         popens[h] = h.popen(cmd, shell=True, preexec_fn=os.setsid)
       
 def start_client(net):
-    client = net.getNodeByName('client')
-    client.cmd("route add -net default dev client-eth0")
-    popens[client] = client.popen('python start_client.py --client_id=%d 2>&1' % (0),
-                                  shell=True, preexec_fn=os.setsid)
+    for i in xrange(0, NUMBER_CLIENTS):
+        client = net.getNodeByName('c%d' % (i))
+        client.cmd("route add -net default dev c%d-eth0" % (i))
+        popens[client] = client.popen('python start_client.py --client_id=%d 2>&1' % (0),
+                                      shell=True, preexec_fn=os.setsid)
 
 def start_user(net):
-    client = net.getNodeByName('client')
     app = net.getNodeByName('app')
     for i in xrange(0, NUMBER_USERS):
         user = net.getNodeByName('u%d'%(i))
+        client = net.getNodeByName('c%d' % (i))
         user.cmd("route add -net default dev u%d-eth0" % (i))
         popens[user] = client.popen('python start_user.py --user_id=%d --client_ip=%s --app_ip=%s 2>&1' % (i,client.IP(),app.IP()), shell=True, preexec_fn=os.setsid)
 

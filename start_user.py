@@ -77,7 +77,7 @@ def main():
         retry = False
         try:
             transport = TSocket.TSocket(args.client_ip, USER_PORT)
-            transport.setTimeout(5000)
+            transport.setTimeout(10000)
             transport = TTransport.TBufferedTransport(transport)
             protocol = TBinaryProtocol.TBinaryProtocol(transport)
             client = Auth_Service.Client(protocol)
