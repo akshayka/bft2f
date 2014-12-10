@@ -15,7 +15,7 @@ from base64 import b64encode, b64decode
 MULTICAST_ADDR = "228.0.0.5"
 PORT = 8005
 F = 2
-VIEW_TIMEOUT = 2
+VIEW_TIMEOUT = 5
 CHECKPOINT_INTERVAL = 100
 # must be greater than CHECKPOINT_INTERVAL
 WATER_MARK_DELTA = CHECKPOINT_INTERVAL * 2
@@ -355,13 +355,19 @@ class BFT2F_Node(DatagramProtocol):
 
         # Enter the commit phase for all prepared pending requests
         # in ascending sequence number order
+        self.handle_prepare_helper()
+
+    def handle_prepare_helper(self):
         pending_n = [n for n in self.pre_prepare_msgs.keys()\
-                           if n > self.highest_committed_n + 1]
-        pending_n = [msg.n] + sorted(pending_n)
+                           if n >= self.highest_committed_n + 1]
+        self.printv("pending_n: %s" % (str(pending_n)))
+        self.printv("self.highest_committed_n  %d" % self.highest_committed_n)
+
         for n in pending_n:
+            self.printv("n = %d, len = %d" % (n, len(self.prepare_msgs.setdefault(n, []))))
             if len(self.prepare_msgs.setdefault(n, [])) == 2 * F + 1:
-                req_D = self.prepare_msgs[n][0]
-                r_msg = self.request_msgs[msg.req_D]
+                p_msg = self.prepare_msgs[n][0]
+                r_msg = self.request_msgs[p_msg.req_D]
                 new_hcd = self.make_digest(self.make_digest(r_msg.SerializeToString()) +\
                                                self.V[self.node_id].hcd)
                 self.T[n] = HistoryEntry(hcd=new_hcd, matching_versions=[])
@@ -380,7 +386,7 @@ class BFT2F_Node(DatagramProtocol):
                                       sig="")
                 c_msg.sig = self.sign(c_msg.SerializeToString())
                 self.send_multicast(c_msg)
-
+        
     def handle_commit(self, msg, address):
         """
         commit: <version-vector-entry>
@@ -405,7 +411,7 @@ class BFT2F_Node(DatagramProtocol):
             self.T[msg.version.n] = HistoryEntry(hcd=self.T[msg.version.n].hcd,
                                          matching_versions=matching_versions)
             self.highest_committed_n = msg.version.n
-            
+            self.handle_prepare_helper()
             # execute the operation and cancel the timer -- the request is
             # complete
             #
