@@ -55,7 +55,7 @@ def start_client(net):
     for i in xrange(0, NUMBER_CLIENTS):
         client = net.getNodeByName('c%d' % (i))
         client.cmd("route add -net default dev c%d-eth0" % (i))
-        popens[client] = client.popen('python start_client.py --client_id=%d 2>&1' % (0),
+        popens[client] = client.popen('python start_client.py --client_id=%d 2>&1' % (i),
                                       shell=True, preexec_fn=os.setsid)
 
 def start_user(net):

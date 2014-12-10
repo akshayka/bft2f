@@ -223,7 +223,7 @@ class BFT2F_Node(DatagramProtocol):
             self.printv("Recieved a PREPARE n: %d" % msg.n)
             self.handle_prepare(msg)
         elif msg.msg_type == BFT2F_MESSAGE.COMMIT and self.state == NodeState.NORMAL:
-            self.printv("Recieved a COMMIT")
+            self.printv("Recieved a COMMIT: seq=%d" % msg.version.n)
             self.handle_commit(msg, address)
         elif msg.msg_type == BFT2F_MESSAGE.VIEW_CHANGE:
             self.handle_view_change(msg, address)
