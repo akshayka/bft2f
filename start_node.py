@@ -365,7 +365,7 @@ class BFT2F_Node(DatagramProtocol):
 
         for n in pending_n:
             self.printv("n = %d, len = %d" % (n, len(self.prepare_msgs.setdefault(n, []))))
-            if len(self.prepare_msgs.setdefault(n, [])) == 2 * F + 1:
+            if len(self.prepare_msgs.setdefault(n, [])) >= 2 * F + 1:
                 p_msg = self.prepare_msgs[n][0]
                 r_msg = self.request_msgs[p_msg.req_D]
                 new_hcd = self.make_digest(self.make_digest(r_msg.SerializeToString()) +\
