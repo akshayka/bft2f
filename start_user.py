@@ -1,3 +1,37 @@
+#!/usr/bin/python
+import os
+import sys, glob
+from bft2f_pb2 import *
+sys.path.append('gen-py')
+from user_base import get_client, get_host_ip
+from argparse import ArgumentParser
+from Crypto.PublicKey import RSA 
+from Crypto.Signature import PKCS1_v1_5
+from Crypto.Hash import SHA 
+from smtplib import SMTP
+import socket
+import json
+from base64 import b64encode, b64decode
+
+BUFFER_SIZE = 10000
+
+def my_sign(private_key, data):
+    digest = SHA.new(data)
+    res = private_key.sign(digest) 
+    return b64encode(res)
+
+
+
+import sys, glob
+from bft2f_pb2 import *
+sys.path.append('gen-py')
+from user_base import get_client
+from argparse import ArgumentParser
+from Crypto.PublicKey import RSA 
+from Crypto.Signature import PKCS1_v1_5
+
+from multiprocessing import Pool
+import os
 import sys, glob
 from bft2f_pb2 import *
 sys.path.append('gen-py')
@@ -5,6 +39,7 @@ from auth_service import Auth_Service
 from auth_service.ttypes import *
 
 import time
+from time import sleep, time
 import smtplib
 from email.mime.text import MIMEText
 import json
@@ -35,10 +70,10 @@ BUFFER_SIZE = 1024
 parser = ArgumentParser()
 parser.add_argument('--client_ip', '-cp',
                     type=str,
-                    required=True)
+                    required=False)
 parser.add_argument('--app_ip', '-ap',
                     type=str,
-                    required=True)
+                    required=False)
 parser.add_argument('--user_id', '-n',
                     type=long,
                     required=True)
@@ -162,7 +197,81 @@ def main():
     # s.sendmail(email_sender, [email_receiver], msg.as_string())
     s.quit()
 
+
+
+def sign_up(user_id, passphrase, client_id):
+    client, t = get_client(client_id)
+    key = RSA.generate(2048)
+    signer1 = PKCS1_v1_5.new(key)
+    pub_key = key.publickey().exportKey('PEM')
+    priv_key_enc = key.exportKey('PEM', passphrase=passphrase)
+    rmsg = client.sign_up(user_id=user_id, user_pub_key=pub_key, user_priv_key_enc=priv_key_enc)
+    print rmsg
+    t.close()
+
+def sign_in(user_id, passphrase, client_id):
+    app_ip = get_host_ip("app")
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((app_ip,2225))
+    data = s.recv(BUFFER_SIZE)
+    data = s.recv(BUFFER_SIZE)
+    s.send("auth cram-cert\n")
+    data = s.recv(BUFFER_SIZE)
+    token = b64decode(data.split(" ")[1])
+
+    client, t = get_client(client_id)
+    rmsg = client.sign_in(user_id=user_id, token=token)
+    t.close()
+    print str(rmsg)[:80],"..."
+
+    sign_in_certs = [[cert.node_pub_key, cert.sig] for cert in rmsg.sign_in_certs]
+    try:
+        priv_key = PKCS1_v1_5.new(RSA.importKey(rmsg.user_priv_key_enc,passphrase))
+    except:
+        print("Wrong password")
+        exit()
+    sign_in_certs.append([rmsg.user_pub_key, my_sign(priv_key, token+rmsg.user_pub_key)])
+    auth_str = b64encode(json.dumps({'id':user_id, 'pub_key':rmsg.user_pub_key,'signature':sign_in_certs}))
+
+    s.send(auth_str+"\n")
+    data = s.recv(BUFFER_SIZE)
+    print data
+
+    s.close()
+
+def sign_in(u_and_p):
+    user_id = u_and_p[0]
+    passphrase = u_and_p[1]
+
+    os.system("./sign_in -u %s -p %s -cid '%s'" % (user_id, passphrase, "c%d" %(args.user_id)))
+    return
+
+def latency_test():
+
+    user_ids = []
+    passphrases = []
+    for i in range(0, 50):
+        user_id = "user%d%d" % (i, args.user_id)
+        passphrase = "pass%d" %(i)
+        user_ids.append(user_id)
+        passphrases.append(passphrase)
+        #os.system("./sign_up -u %s -p %s -cid '%s'" % (user_id, passphrase, "c%d" %(args.user_id)))
+
+        #sign_up("user%d%d" % (i, args.user_id), "pass%d" %(i), "c0")
+
+    p = Pool(50)
+
+    t0  = time()
+    
+    p.map(sign_in, zip(user_ids, passphrases))
+    print "Latency = %d" % (time() - t0)
+    p.close()
+    p.join()
+
+
+
+
+        
 if __name__ == '__main__':
-    #main()
-    pass
+    latency_test()
 

@@ -246,12 +246,15 @@ class BFT2F_Node(DatagramProtocol):
         last_rep_entry = self.replay_cache.get(msg.client_id)
         if last_rep_entry is not None:
             if last_rep_entry.req.ts > msg.ts:
+                self.printv("returning bc of ts %d %d" % (last_rep_entry.req.ts, msg.ts))
                 return
             elif last_rep_entry.req.ts == msg.ts:
                 self.printv('REPLAY! ts %d' % msg.ts)
                 self.send_msg(last_rep_entry.rep, address)
                 return
             elif last_rep_entry.rep.version.hcd != msg.version.hcd:
+                self.printv("client id %d"%(msg.client_id))
+                self.printv("hcd %s %s" % (last_rep_entry.rep.version.hcd, msg.version.hcd))
                 return
 
         # Read only optimization
@@ -821,7 +824,6 @@ class BFT2F_Node(DatagramProtocol):
             sign_in_cert = BFT2f_SIGN_IN_CERT(
                 node_pub_key=self.server_pubkeys[self.node_id]._key.exportKey(),
                 sig=self.sign(op.token + user_store_ent.user_pub_key))
-            self.printv("auth_str="+op.token + user_store_ent.user_pub_key)
 
             return BFT2f_OP_RES(type=BFT2f_OP_RES.SUCCESS,
                                 op_type=op.type,

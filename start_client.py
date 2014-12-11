@@ -49,7 +49,7 @@ class Auth_Service_Handler:
         twisted_client.bft2f_sign_in(user_id, token)
         # Wait for 2f + 1 rep
         
-        while(not USER_REQUESTS[req_id][0].wait(timeout=5)):
+        while(not USER_REQUESTS[req_id][0].wait(timeout=500)):
             twisted_client.bft2f_sign_in(user_id, token)
         
         reps = USER_REQUESTS[req_id][1]
@@ -77,7 +77,7 @@ class Auth_Service_Handler:
         twisted_client.bft2f_sign_up(user_id, user_pub_key, user_priv_key_enc)
 
         # Wait untill bft2f comes up with a response(2f + 1)
-        while(not USER_REQUESTS[req_id][0].wait(timeout=5)):
+        while(not USER_REQUESTS[req_id][0].wait(timeout=500)):
             twisted_client.bft2f_sign_up(user_id, user_pub_key, user_priv_key_enc)
 
         reps = USER_REQUESTS[req_id][1]

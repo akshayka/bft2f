@@ -18,8 +18,8 @@ from argparse import ArgumentParser
 import signal
 
 NUMBER_NODES = 7
-NUMBER_CLIENTS = 2
-NUMBER_USERS = 2
+NUMBER_CLIENTS = 1
+NUMBER_USERS = 1
 RUN_DURATION = 35
 popens = {}
 
@@ -58,7 +58,7 @@ def start_client(net):
     for i in xrange(0, NUMBER_CLIENTS):
         client = net.getNodeByName('c%d' % (i))
         client.cmd("route add -net default dev c%d-eth0" % (i))
-        popens[client] = client.popen('python start_client.py --client_id=%d >> %s' % (i, DEBUG_OUTPUT_FILE),
+        popens[client] = client.popen('python start_client.py --client_id=%d' % (i),
                                       shell=True, preexec_fn=os.setsid)
 
 def start_user(net):
@@ -67,12 +67,12 @@ def start_user(net):
         user = net.getNodeByName('u%d'%(i))
         client = net.getNodeByName('c%d' % (i))
         user.cmd("route add -net default dev u%d-eth0" % (i))
-        popens[user] = client.popen('python start_user.py --user_id=%d --client_ip=%s --app_ip=%s' % (i, client.IP(), app.IP()), shell=True, preexec_fn=os.setsid)
+        #popens[user] = client.popen('python start_user.py --user_id=%d --client_ip=%s --app_ip=%s  >>%s 2>&1' % (i, client.IP(), app.IP(), DEBUG_OUTPUT_FILE), shell=True, preexec_fn=os.setsid)
 
 def start_app(net):
     app = net.getNodeByName('app')
     app.cmd("route add -net default dev app-eth0")
-    popens[app] = app.popen('node haraka.js >>%s' % (DEBUG_OUTPUT_FILE),
+    popens[app] = app.popen('node haraka.js >>%s 2>&1' % (DEBUG_OUTPUT_FILE),
                                   shell=True, preexec_fn=os.setsid, cwd='./Haraka')
     
 def create_etc_hosts(net):
