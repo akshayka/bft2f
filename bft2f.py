@@ -49,11 +49,9 @@ def start_nodes(net, verbose):
         h = net.getNodeByName('h%d'%(i))
         h.cmd("route add -net default dev h%d-eth0" % (i))
         if verbose:
-            cmd = 'python start_node.py --node_id=%d -v >>%s' % (i, DEBUG_OUTPUT_FILE)
+            cmd = 'python start_node.py --node_id=%d -v >>%s 2>&1' % (i, DEBUG_OUTPUT_FILE)
         else:
-            cmd = 'python start_node.py --node_id=%d >>%s' % (i, DEBUG_OUTPUT_FILE)
-	if i==3 or i==2:
-            cmd = 'python start_evilnode.py --node_id=%d -v >>%s' % (i, DEBUG_OUTPUT_FILE)
+            cmd = 'python start_node.py --node_id=%d >>%s 2>&1' % (i, DEBUG_OUTPUT_FILE)
         popens[h] = h.popen(cmd, shell=True, preexec_fn=os.setsid)
       
 def start_client(net):

@@ -207,7 +207,7 @@ class BFT2F_Node(DatagramProtocol):
         signature = msg.sig
         msg.sig = ""
         if not self.verify(signer,signature,msg.SerializeToString()):
-            self.printv("wrong signature : %d :"%msg.node_id, msg.msg_type)
+            self.printv("wrong signature : %d :" % msg.node_id)
             self.lock.release()
             return
         msg.sig = signature
@@ -355,10 +355,10 @@ class BFT2F_Node(DatagramProtocol):
                            if n >= self.highest_committed_n + 1]
         for n in pending_n:
             pre_prepare = self.pre_prepare_msgs[n]
-            matching_prepares = [p for p in self.prepare_msgs.get(n, [])
-                                    if prepares_match(p, pre_prepare)]
-            if len(matching_prepares) >= 2 * F:
-                p_msg = self.prepare_msgs[n][0]
+            matching_prepares = [p for p in self.prepare_msgs.setdefault(n, [])
+                                    if self.prepares_match(p, pre_prepare)]            
+            if len(matching_prepares) >= 2 * F + 1:
+                p_msg = matching_prepares[0]
                 r_msg = self.request_msgs[p_msg.req_D]
                 new_hcd = self.make_digest(self.make_digest(r_msg.SerializeToString()) +\
                                                self.V[self.node_id].hcd)
@@ -860,7 +860,7 @@ class BFT2F_Node(DatagramProtocol):
     def seqno_in_bounds(self, n):
         return n <= self.highest_accepted_n + 10
 
-    def prepares_match(self, p1, p2):
+    def prepares_match(self, p1, p2):        
         return (p1.view == p2.view) and (p1.n == p2.n) and\
             (p1.req_D == p2.req_D)
 

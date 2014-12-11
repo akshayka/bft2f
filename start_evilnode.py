@@ -272,7 +272,20 @@ class BFT2F_Node(DatagramProtocol):
             # The primary updates its state before sending out any other
             # pre_prepare message
             self.handle_pre_prepare_helper(pp_msg)
+        else:
+            self.printv("***** SENDING EVIL PRE_PREPARE ********")
+            pp_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.PRE_PREPARE,
+                                            node_id=self.primary(self.view),
+                                            view=self.view,
+                                            n=self.highest_accepted_n + 2,
+                                            req_D=self.make_digest(msg.SerializeToString()),
+                                            sig="")
+            pp_msg.sig = self.sign(pp_msg.SerializeToString())
+            self.send_multicast(pp_msg)
 
+            # The primary updates its state before sending out any other
+            # pre_prepare message
+            self.handle_pre_prepare_helper(pp_msg)
         self.request_msgs[self.make_digest(msg.SerializeToString())] = msg
 
         # TODO: Does it make sense for the primary to set a view-change
