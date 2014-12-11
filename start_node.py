@@ -588,7 +588,13 @@ class BFT2F_Node(DatagramProtocol):
         """
         for P_m in P:
             cur_pp_msg = P_m.msgs[0]
-            unique_p_msgs = list(set(P_m.msgs[1:]))
+            unique_nodes = set()
+            unique_p_msgs = []
+            for p_msg in P_m.msgs:
+                if p_msg.node_id not in unique_nodes:
+                    unique_nodes.add(p_msg.node_id)
+                    unique_p_msgs.add(p_msg)
+
             if len(unique_p_msgs) < 2 * F + 1:
                 return False            
             for u_p_msg in unique_p_msg:
@@ -736,7 +742,13 @@ class BFT2F_Node(DatagramProtocol):
 
     def valid_req_proof(self, req_proof):
         # 2*F+1 unique versions
-        unique_versions = list(set(req_proof.matching_versions))
+        unique_nodes = set()
+        unique_versions = []
+        for v in req_proof.matching_versions:
+            if v.node_id not in unique_nodes:
+                unique_nodes.add(v.node_id)
+                unique_p_msgs.add(v)
+
         if len(unique_versions) < 2 * F + 1:
             return False
         # TODO check sig
