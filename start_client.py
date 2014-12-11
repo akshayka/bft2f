@@ -43,13 +43,14 @@ USER_REQUESTS = {}
 class Auth_Service_Handler:
     def sign_in(self, user_id, token):
         req_id = user_id + token
-        USER_REQUESTS[req_id] = [threading.Event(), []]
+        USER_REQUESTS[req_id] = [threading.Event(), [], False]
         
         # Send sign in to BFT2F
         twisted_client.bft2f_sign_in(user_id, token)
         # Wait for 2f + 1 rep
         
-        USER_REQUESTS[req_id][0].wait()
+        while(not USER_REQUESTS[req_id][0].wait(timeout=5)):
+            twisted_client.bft2f_sign_in(user_id, token)
         
         reps = USER_REQUESTS[req_id][1]
         if reps[0].res.type != BFT2f_OP_RES.SUCCESS:
@@ -71,12 +72,14 @@ class Auth_Service_Handler:
 
     def sign_up(self, user_id, user_pub_key, user_priv_key_enc):
         req_id = user_id
-        USER_REQUESTS[req_id] = [threading.Event(), []]
+        USER_REQUESTS[req_id] = [threading.Event(), [], False]
         # Make a call to bft2f
         twisted_client.bft2f_sign_up(user_id, user_pub_key, user_priv_key_enc)
 
         # Wait untill bft2f comes up with a response(2f + 1)
-        USER_REQUESTS[req_id][0].wait()
+        while(not USER_REQUESTS[req_id][0].wait(timeout=5)):
+            twisted_client.bft2f_sign_up(user_id, user_pub_key, user_priv_key_enc)
+
         reps = USER_REQUESTS[req_id][1]
 
         if reps[0].res.type != BFT2f_OP_RES.SUCCESS:
@@ -90,7 +93,7 @@ class Auth_Service_Handler:
 
     def change_credentials(self, user_id, new_user_pub_key, new_user_priv_key_enc, sig):
         req_id = user_id
-        USER_REQUESTS[req_id] = [threading.Event(), []]
+        USER_REQUESTS[req_id] = [threading.Event(), [], False]
         # Make a call to bft2f
         twisted_client.bft2f_change_credentials(user_id, new_user_pub_key, new_user_priv_key_enc,
                                                 sig)
@@ -198,7 +201,7 @@ class BFT2F_Client(DatagramProtocol):
             req_id = msg.res.user_id + msg.res.token
             
         # Added the new rep
-        if req_id in USER_REQUESTS:
+        if req_id in USER_REQUESTS and not USER_REQUESTS[req_id][2]:
             USER_REQUESTS[req_id][1].append(msg)
             # Check if there are 2F + 1 matching
             matching_reps = self.matching_reps(USER_REQUESTS[req_id][1], msg)
@@ -206,6 +209,7 @@ class BFT2F_Client(DatagramProtocol):
             if len(matching_reps) == 2 * F + 1:
                 self.version = msg.version
                 USER_REQUESTS[req_id][1] = matching_reps
+                USER_REQUESTS[req_id][2] = True
                 # Unblock the user request
                 USER_REQUESTS[req_id][0].set()
         return

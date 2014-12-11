@@ -15,7 +15,7 @@ from base64 import b64encode, b64decode
 MULTICAST_ADDR = "228.0.0.5"
 PORT = 8005
 F = 2
-VIEW_TIMEOUT = 1
+VIEW_TIMEOUT = 5
 CHECKPOINT_INTERVAL = 100
 # must be greater than CHECKPOINT_INTERVAL
 WATER_MARK_DELTA = CHECKPOINT_INTERVAL * 2
@@ -246,22 +246,20 @@ class BFT2F_Node(DatagramProtocol):
         last_rep_entry = self.replay_cache.get(msg.client_id)
         if last_rep_entry is not None:
             if last_rep_entry.req.ts > msg.ts:
-                self.printv('ignored: ts too small %d' % msg.ts)
-                self.printv(msg)
                 return
             elif last_rep_entry.req.ts == msg.ts:
                 self.printv('REPLAY! ts %d' % msg.ts)
-                self.printv(msg)
                 self.send_msg(last_rep_entry.rep, address)
                 return
             elif last_rep_entry.rep.version.hcd != msg.version.hcd:
-                self.printv('ignored incorrect HCD version')
-                self.printv('replay cache v' + str(last_rep_entry.rep.version))
-                self.printv('msg' + str(msg.version))
                 return
 
+        # Read only optimization
+        if msg.op.type == SIGN_IN:
+            self.handle_commit_helper(msg)
+            return
+
         if self.node_id == self.primary(self.view):
-            self.printv("Handling request")
             pp_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.PRE_PREPARE,
                                             node_id=self.node_id,
                                             view=self.view,
@@ -274,25 +272,13 @@ class BFT2F_Node(DatagramProtocol):
             # The primary updates its state before sending out any other
             # pre_prepare message
             self.handle_pre_prepare_helper(pp_msg)
-        else:
-            self.printv("Sending evil pre-prepare")
-            pp_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.PRE_PREPARE,
-                                            node_id=self.primary(self.view),
-                                            view=self.view,
-                                            n=self.highest_accepted_n + 2,
-                                            req_D=self.make_digest(msg.SerializeToString()),
-                                            sig="")
-            pp_msg.sig = self.sign(pp_msg.SerializeToString())
-            self.send_multicast(pp_msg)
 
-            # The primary updates its state before sending out any other
-            # pre_prepare message
-            self.handle_pre_prepare_helper(pp_msg)
         self.request_msgs[self.make_digest(msg.SerializeToString())] = msg
 
         # TODO: Does it make sense for the primary to set a view-change
         # timer for the primary, as we do here?
         self.start_timer()
+        #self.change_view()
 
     def handle_pre_prepare_helper(self, msg):
         """
@@ -304,7 +290,7 @@ class BFT2F_Node(DatagramProtocol):
 
         p_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.PREPARE,
                               node_id=self.node_id,
-                              view=self.V[self.node_id].view,
+                              view=self.view,
                               n=msg.n,
                               req_D=msg.req_D,
                               sig="")
@@ -333,16 +319,11 @@ class BFT2F_Node(DatagramProtocol):
            msg.req_D not in self.request_msgs or\
            (self.pre_prepare_msgs.get(msg.n) and\
                 self.pre_prepare_msgs.get(msg.n) != msg):
-            self.printv('ignore pre_prepare')
-            self.printv('highest %d' % self.highest_accepted_n)
-            self.printv('self view %d msg view %d' % (self.view, msg.view))
             if msg.req_D not in self.request_msgs:
-                self.printv('didn\'t receive request')
+                pass
             if (self.pre_prepare_msgs.get(msg.n) and\
                 self.pre_prepare_msgs.get(msg.n) != msg):
-                self.printv('prepared a different message')
-                self.printv(self.pre_prepare_msgs.get(msg.n))
-            self.printv(msg)
+                pass
             return;
 
         self.handle_pre_prepare_helper(msg)
@@ -360,7 +341,7 @@ class BFT2F_Node(DatagramProtocol):
             self.view != msg.view:
             return
         self.prepare_msgs[msg.n].append(msg)
-
+        
         # Only commit this message if all lower sequence numbers
         # have been committed.
         if msg.n != self.highest_committed_n + 1:
@@ -373,11 +354,7 @@ class BFT2F_Node(DatagramProtocol):
     def handle_prepare_helper(self):
         pending_n = [n for n in self.pre_prepare_msgs.keys()\
                            if n >= self.highest_committed_n + 1]
-        self.printv("pending_n: %s" % (str(pending_n)))
-        self.printv("self.highest_committed_n  %d" % self.highest_committed_n)
-
         for n in pending_n:
-            self.printv("n = %d, len = %d" % (n, len(self.prepare_msgs.setdefault(n, []))))
             if len(self.prepare_msgs.setdefault(n, [])) >= 2 * F + 1:
                 p_msg = self.prepare_msgs[n][0]
                 r_msg = self.request_msgs[p_msg.req_D]
@@ -432,23 +409,7 @@ class BFT2F_Node(DatagramProtocol):
             # are waiting. We do not initialize a timer for these requests;
             # the next client request we receive will do so for us.
             r_msg = self.request_msgs[self.pre_prepare_msgs[msg.version.n].req_D]
-            res = self.execute_op(r_msg.op)
-            self.cancel_timer() 
-
-            # respond to the client
-            client_id = r_msg.client_id
-            rp_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.REPLY,
-                                   client_id=r_msg.client_id,
-                                   node_id=self.node_id,
-                                   ts=r_msg.ts,
-                                   res=res,
-                                   version=self.V[self.node_id],
-                                   sig="")
-            rp_msg.sig = self.sign(rp_msg.SerializeToString())
-            self.replay_cache[r_msg.client_id] = CacheEntry(req=r_msg, rep=rp_msg)
-            self.printv("replying to %s %s" % (client_id, PORT))
-            self.send_msg(rp_msg, self.client_addr[client_id])
-
+            self.handle_commit_helper(r_msg)
             # TODO According to the original paper, we generate
             # a checkpoint 'when a request with a sequence number divisible
             # by some constant is executed.' But what if the primary is an adversary
@@ -456,6 +417,23 @@ class BFT2F_Node(DatagramProtocol):
             if msg.version.n % CHECKPOINT_INTERVAL == 0:
                 self.make_checkpoint(msg.version.n)
 
+    def handle_commit_helper(self, client_req):
+        res = self.execute_op(client_req.op)
+        self.cancel_timer()
+        # respond to the client
+        client_id = client_req.client_id
+        rp_msg = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.REPLY,
+                               client_id=client_id,
+                               node_id=self.node_id,
+                               ts=client_req.ts,
+                               res=res,
+                               version=self.V[self.node_id],
+                               sig="")
+        rp_msg.sig = self.sign(rp_msg.SerializeToString())
+        self.replay_cache[client_id] = CacheEntry(req=client_req, rep=rp_msg)
+        self.printv("replying to %s %s" % (client_id, PORT))
+        self.send_msg(rp_msg, self.client_addr[client_id])
+        
     # TODO -A
     # checkpoint: < node-id, n, D(state), D(rcache) >
     def handle_checkpoint(self, msg, address):
@@ -652,8 +630,6 @@ class BFT2F_Node(DatagramProtocol):
         # If we're behind the primary, then we wait until we catch up to it
         # before changing views
         if self.version_dominates_strictly(msg.version, self.V[self.node_id]):
-            self.printv('dominator ' + str(msg.version))
-            self.printv('me ' + str(self.V[self.node_id]))
             self.pending_new_view_msg = msg
             self.request_fast_forward(address)
         else:
@@ -799,13 +775,13 @@ class BFT2F_Node(DatagramProtocol):
         if self.timer is None:
             self.timer = Timer(VIEW_TIMEOUT,self.change_view, args=[])
             self.timer.start()
-            self.printv('START')
+            self.printv('START Timer')
 
     def cancel_timer(self):
         if self.timer is not None:
             self.timer.cancel()
             self.timer = None
-            self.printv('CANCEL')
+            self.printv('CANCEL Timer')
 
     def execute_op(self, op):
         #TODO tokens
@@ -828,8 +804,11 @@ class BFT2F_Node(DatagramProtocol):
                                     user_id=op.user_id,
                                     token=op.token)
             user_store_ent = self.user_store.get(op.user_id)
+            user_store_ent= UserStoreEntry(user_pub_key="You shall not pass",
+                                           user_priv_key_enc=user_store_ent.user_priv_key_enc)
+
             sign_in_cert = BFT2f_SIGN_IN_CERT(
-                node_pub_key="You shall not pass",
+                node_pub_key=self.server_pubkeys[self.node_id]._key.exportKey(),
                 sig=self.sign(op.token + user_store_ent.user_pub_key))
             self.printv("auth_str="+op.token + user_store_ent.user_pub_key)
 
@@ -916,8 +895,12 @@ class BFT2F_Node(DatagramProtocol):
         return view % (3 * F + 1)
 
     def printv(self, text):
+        if self.node_id == self.primary(self.view):
+            node_name = "Primary"
+        else:
+            node_name = "Node %d" % self.node_id
         if self.verbose:
-            print text
+            print "%s: %s" % (node_name, text)
             sys.stdout.flush()
 
 def main():
