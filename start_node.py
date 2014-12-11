@@ -354,7 +354,10 @@ class BFT2F_Node(DatagramProtocol):
         pending_n = [n for n in self.pre_prepare_msgs.keys()\
                            if n >= self.highest_committed_n + 1]
         for n in pending_n:
-            if len(self.prepare_msgs.setdefault(n, [])) >= 2 * F + 1:
+            pre_prepare = self.pre_prepare_msgs[n]
+            matching_prepares = [p for p in self.prepare_msgs.get(n, [])
+                                    if prepares_match(p, pre_prepare)]
+            if len(matching_prepares) >= 2 * F:
                 p_msg = self.prepare_msgs[n][0]
                 r_msg = self.request_msgs[p_msg.req_D]
                 new_hcd = self.make_digest(self.make_digest(r_msg.SerializeToString()) +\
@@ -856,6 +859,10 @@ class BFT2F_Node(DatagramProtocol):
     # TODO: low water mark, high water mark
     def seqno_in_bounds(self, n):
         return n <= self.highest_accepted_n + 10
+
+    def prepares_match(self, p1, p2):
+        return (p1.view == p2.view) and (p1.n == p2.n) and\
+            (p1.req_D == p2.req_D)
 
     def versions_match(self, v1, v2):
         return (v1.view == v2.view) and (v1.n == v2.n) and (v1.hcd == v2.hcd)
