@@ -48,7 +48,6 @@ class Auth_Service_Handler:
         # Send sign in to BFT2F
         twisted_client.bft2f_sign_in(user_id, token)
         # Wait for 2f + 1 rep
-        
         while(not USER_REQUESTS[req_id][0].wait(timeout=2)):
             twisted_client.bft2f_sign_in(user_id, token)
         
@@ -56,7 +55,6 @@ class Auth_Service_Handler:
         if reps[0].res.type != BFT2f_OP_RES.SUCCESS:
             return Auth_Service_Sign_In_Res(status=Auth_Service_Res_Status.Failed,
                                             user_id=user_id)
-                                            
 
         # Extract sign_in_certs (from protobufs to thrift)
         sign_in_certs = []
@@ -97,7 +95,6 @@ class Auth_Service_Handler:
         # Make a call to bft2f
         twisted_client.bft2f_change_credentials(user_id, new_user_pub_key, new_user_priv_key_enc,
                                                 sig)
-
         # Wait untill bft2f comes up with a response(2f + 1)
         USER_REQUESTS[req_id][0].wait()
 
@@ -107,13 +104,10 @@ class Auth_Service_Handler:
             return Auth_Service_Change_Credentials_Res(status=Auth_Service_Res_Status.Failed,
                                                        user_id=user_id)
         
-        
         return Auth_Service_Change_Credentials_Res(status=Auth_Service_Res_Status.Success,
                                                    user_id=user_id,
                                                    new_user_pub_key=new_user_pub_key,
                                                    new_user_priv_key_enc=new_user_priv_key_enc)
-
-
 
 
 class BFT2F_Client(DatagramProtocol):
@@ -122,12 +116,9 @@ class BFT2F_Client(DatagramProtocol):
         # load private key
         key = open("./certs/client%d.key"%self.client_id, "r").read() 
         self.private_key = PKCS1_v1_5.new(RSA.importKey(key))
-
         key = open("./certs/rootCA_pub.pem", "r").read() 
         self.rootCA_pubkey = PKCS1_v1_5.new(RSA.importKey(key))
-
         self.version = BFT2F_VERSION(node_id=0, view=0, n=0, hcd="")
-
         self.ts = 0
 
         #load public keys
@@ -188,7 +179,7 @@ class BFT2F_Client(DatagramProtocol):
         signature = msg.sig
         msg.sig = ""
         if not self.verify_func(signer,signature,msg.SerializeToString()):
-            print "wrong signature : %d :" % msg.node_id, msg.msg_type
+            print "wrong signature : %d :" % msg.node_id
             sys.stdout.flush()
             return
         else:
@@ -229,15 +220,10 @@ class BFT2F_Client(DatagramProtocol):
         return matching_reps
         
     def verify_func(self, signer, signature, data):
-        digest = SHA.new(data) 
-        if signer.verify(digest, b64decode(signature)):
-            return True
-        return False
+        return signer.verify(SHA.new(data), b64decode(signature))
 
     def sign_func(self, data):
-        digest = SHA.new(data)
-        sign = self.private_key.sign(digest) 
-        return b64encode(sign)
+        return b64encode(self.private_key.sign(SHA.new(data)))
 
     def make_ts(self):
         ret = self.ts
@@ -248,7 +234,6 @@ def start_twisted():
     reactor.listenMulticast(BFT2F_PORT, twisted_client, listenMultiple=True)
     reactor.run(installSignalHandlers=0)
     
-
 def start_thrift():
     processor = Auth_Service.Processor(thrift_handler)
     transport = TSocket.TServerSocket(port=USER_PORT)
@@ -257,10 +242,8 @@ def start_thrift():
     server = TServer.TThreadedServer(processor, transport, tfactory, pfactory)
     server.serve()
 
-
 thrift_handler = Auth_Service_Handler()
 twisted_client = BFT2F_Client(args.client_id)
-
 
 if __name__ == '__main__':
     # Start twist and thrift servers on seperate threads

@@ -1,71 +1,32 @@
 #!/usr/bin/python
-import os
-import sys, glob
-from bft2f_pb2 import *
+import os, sys, glob
 sys.path.append('gen-py')
+from bft2f_pb2 import *
 from user_base import get_client, get_host_ip
 from argparse import ArgumentParser
 from Crypto.PublicKey import RSA 
 from Crypto.Signature import PKCS1_v1_5
 from Crypto.Hash import SHA 
-from smtplib import SMTP
+from base64 import b64encode, b64decode
 import socket
 import json
-from base64 import b64encode, b64decode
-
-BUFFER_SIZE = 10000
-
-def my_sign(private_key, data):
-    digest = SHA.new(data)
-    res = private_key.sign(digest) 
-    return b64encode(res)
-
-
-
-import sys, glob
-from bft2f_pb2 import *
-sys.path.append('gen-py')
-from user_base import get_client
-from argparse import ArgumentParser
-from Crypto.PublicKey import RSA 
-from Crypto.Signature import PKCS1_v1_5
+import time
+import smtplib
+from email.mime.text import MIMEText
 
 from multiprocessing import Pool
-import os
-import sys, glob
-from bft2f_pb2 import *
-sys.path.append('gen-py')
 from auth_service import Auth_Service
 from auth_service.ttypes import *
 
-import time
-from time import sleep, time
-import smtplib
-from email.mime.text import MIMEText
-import json
-import socket
-from argparse import ArgumentParser
-
-from Crypto.PublicKey import RSA 
-from Crypto.Signature import PKCS1_v1_5
-from Crypto.Hash import SHA 
-from base64 import b64encode, b64decode
 from twisted.internet import protocol, defer, endpoints, task
-
-
 from thrift import Thrift
 from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
-BFT2F_PORT = 8005
-USER_PORT = 9090
-
 CLIENT_ADDR = "228.0.0.5"
-PORT = 8000
-BUFFER_SIZE = 1024
-# email_sender="jongho271828@gmail.com"
-# email_receiver="peaces1@gmail.com"
+BUFFER_SIZE = 2048
+USER_PORT = 9090
 
 parser = ArgumentParser()
 parser.add_argument('--client_ip', '-cp',
@@ -88,18 +49,6 @@ priv_key_tmp_filename="/tmp/user%dkey_priv.key"%(args.user_id)
 pub_key_tmp_filename="/tmp/user%dkey_pub.crt"%(args.user_id)
 
 print "start user"
-
-
-def verify_func(signer, signature, data):
-    digest = SHA.new(data) 
-    if signer.verify(digest, b64decode(signature)):
-        return True
-    return False
-
-def sign_func(signer, data):
-    digest = SHA.new(data)
-    sign = signer.sign(digest) 
-    return b64encode(sign)
 
 def main():
     f1=open(priv_key_orig_filename,"r")
@@ -143,7 +92,6 @@ def main():
     sys.stdout.flush()
     token = b64decode(res[1])
 
-    
     retry = True
     while(retry):
         print "trying"
@@ -164,7 +112,6 @@ def main():
             print "crashed"
             sys.stdout.flush()
             retry=True
-            #transport.close()
     
     print rmsg
     sign_in_certs = [[cert.node_pub_key, cert.sig] for cert in rmsg.sign_in_certs]
@@ -182,7 +129,7 @@ def main():
     f = open(priv_key_tmp_filename,'w')
     f.write(key.exportKey('PEM'))
     f.close()
-    # key = RSA.importKey(rmsg.user_pub_key)
+    key = RSA.importKey(rmsg.user_pub_key)
     f = open(pub_key_tmp_filename,'w')
     f.write(rmsg.user_pub_key)
     f.close()
@@ -197,59 +144,10 @@ def main():
     # s.sendmail(email_sender, [email_receiver], msg.as_string())
     s.quit()
 
-
-
-def sign_up(user_id, passphrase, client_id):
-    client, t = get_client(client_id)
-    key = RSA.generate(2048)
-    signer1 = PKCS1_v1_5.new(key)
-    pub_key = key.publickey().exportKey('PEM')
-    priv_key_enc = key.exportKey('PEM', passphrase=passphrase)
-    rmsg = client.sign_up(user_id=user_id, user_pub_key=pub_key, user_priv_key_enc=priv_key_enc)
-    print rmsg
-    t.close()
-
-def sign_in(user_id, passphrase, client_id):
-    app_ip = get_host_ip("app")
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((app_ip,2225))
-    data = s.recv(BUFFER_SIZE)
-    data = s.recv(BUFFER_SIZE)
-    s.send("auth cram-cert\n")
-    data = s.recv(BUFFER_SIZE)
-    token = b64decode(data.split(" ")[1])
-
-    client, t = get_client(client_id)
-    rmsg = client.sign_in(user_id=user_id, token=token)
-    t.close()
-    print str(rmsg)[:80],"..."
-
-    sign_in_certs = [[cert.node_pub_key, cert.sig] for cert in rmsg.sign_in_certs]
-    try:
-        priv_key = PKCS1_v1_5.new(RSA.importKey(rmsg.user_priv_key_enc,passphrase))
-    except:
-        print("Wrong password")
-        exit()
-    sign_in_certs.append([rmsg.user_pub_key, my_sign(priv_key, token+rmsg.user_pub_key)])
-    auth_str = b64encode(json.dumps({'id':user_id, 'pub_key':rmsg.user_pub_key,'signature':sign_in_certs}))
-
-    s.send(auth_str+"\n")
-    data = s.recv(BUFFER_SIZE)
-    print data
-
-    s.close()
-
-def sign_in(u_and_p):
-    user_id = u_and_p[0]
-    passphrase = u_and_p[1]
-    client_id = u_and_p[2]
-    os.system("./sign_in -u %s -p %s -cid '%s'" % (user_id, passphrase, "c%d" %(client_id)))
-    return
-
 def latency_test():
-
     user_ids = []
     passphrases = []
+    #set up - generate login credentials
     for i in range(0, 20):
         user_id = "user%d%d" % (i, args.user_id)
         passphrase = "pass%d" %(i)
@@ -257,25 +155,17 @@ def latency_test():
         passphrases.append(passphrase)
         os.system("./sign_up -u %s -p %s -cid '%s'" % (user_id, passphrase, "c%d" %(args.user_id)))
 
-        #sign_up("user%d%d" % (i, args.user_id), "pass%d" %(i), "c0")
-
-
-    t0  = time()
-    #print zip(user_ids, passphrases)
-    
-    #for user_id, passphrase, client_id in zip(user_ids, passphrases, [0] * 50):
-    #    sign_in((user_id, passphrase, client_id))
-
+    #start measuring
+    sign_in = lambda id_and_pass: os.system("./sign_in -u %s -p %s -cid '%s'" % 
+        (id_and_pass[0], id_and_pass[1], "c%d" %(id_and_pass[2])))
     p = Pool(20)
-    
+    t0 = time.time()
     p.map(sign_in, zip(user_ids * 10, passphrases * 10, [0] * 200))
+    t1 = time.time()
     p.close()
     p.join()
 
-    print "Latency = %d" % (time() - t0)
-
-
-
+    print "Latency = %d" % (t1 - t0)
 
         
 if __name__ == '__main__':

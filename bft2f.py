@@ -41,7 +41,6 @@ class BftTopo(Topo):
         for i in xrange(0, NUMBER_USERS):
             self.addLink(self.addHost('u%d' % (i)), s0, bw=LINK_BW, delay=LINK_DELAY)
         self.addLink(self.addHost('app'), s0, bw=LINK_BW, delay=LINK_DELAY)
-        
         return
 
 def start_nodes(net, verbose):
@@ -102,15 +101,10 @@ def main():
     start_user(net)
     CLI(net)
     endTime = time() + RUN_DURATION
-    #num_processes = len(popens)
-    #for h, line in pmonitor(popens, timeoutms=500):
-    #    if h:
-    #        print '%s: %s' % ( h.name, line ),
-    #    if time() >= endTime:
-    #        break
-    #for p in popens.values():
-    #    os.killpg(p.pid, signal.SIGTERM)
-    #net.stop()
+
+    for p in popens.values():
+       os.killpg(p.pid, signal.SIGTERM)
+    net.stop()
 
 if __name__ == '__main__':
     main()

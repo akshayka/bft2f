@@ -898,15 +898,10 @@ class BFT2F_Node(DatagramProtocol):
         return b64encode(digest.digest())
 
     def verify(self, signer, signature, data):
-        digest = SHA.new(data) 
-        if signer.verify(digest, b64decode(signature)):
-            return True
-        return False
+        return signer.verify(SHA.new(data) , b64decode(signature))
 
     def sign(self, data):
-        digest = SHA.new(data)
-        sign = self.private_key.sign(digest) 
-        return b64encode(sign)
+        return b64encode(self.private_key.sign(SHA.new(data)))
 
     def primary(self, view):
         return view % (3 * F + 1)
