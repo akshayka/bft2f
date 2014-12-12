@@ -43,13 +43,13 @@ app_ip = get_host_ip(args.app_id)
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect((app_ip,2225))
 data = s.recv(BUFFER_SIZE)
-print data
+#print data
 s.send("ehlo local\n")
 data = s.recv(BUFFER_SIZE)
-print data
+#print data
 s.send("auth cram-cert\n")
 data = s.recv(BUFFER_SIZE)
-print data
+#print data
 token = b64decode(data.split(" ")[1])
 
 client, t = get_client(args.client_id)
@@ -73,7 +73,7 @@ auth_str = b64encode(json.dumps({'id':args.user_id, 'pub_key':rmsg.user_pub_key,
 
 s.send(auth_str+"\n")
 data = s.recv(BUFFER_SIZE)
-print data
+#print data
 
 s.close()
 

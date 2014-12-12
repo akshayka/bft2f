@@ -6,6 +6,7 @@ from user_base import get_client
 from argparse import ArgumentParser
 from Crypto.PublicKey import RSA 
 from Crypto.Signature import PKCS1_v1_5
+from auth_service.ttypes import *
 
 parser = ArgumentParser()
 parser.add_argument('--client_id', '-cid',
@@ -27,7 +28,9 @@ signer1 = PKCS1_v1_5.new(key)
 pub_key = key.publickey().exportKey('PEM')
 priv_key_enc = key.exportKey('PEM', passphrase=args.passphrase)
 rmsg = client.sign_up(user_id=args.user_id, user_pub_key=pub_key, user_priv_key_enc=priv_key_enc)
-print rmsg
+print str(rmsg)[:80]
+if rmsg.status == Auth_Service_Res_Status.Success:
+    print "Sign Up Successful!"
 t.close()
 
 

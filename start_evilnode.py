@@ -206,10 +206,16 @@ class BFT2F_Node(DatagramProtocol):
             signer = self.server_pubkeys[msg.node_id]
         signature = msg.sig
         msg.sig = ""
-        if not self.verify(signer,signature,msg.SerializeToString()):
-            self.printv("wrong signature : %d :"%msg.node_id, msg.msg_type)
+        try:
+            if not self.verify(signer,signature,msg.SerializeToString()):
+                self.printv("wrong signature : %d :" % msg.node_id)
+                self.lock.release()
+                return
+        except:
+            self.printv("wrong signature : %d :" % msg.node_id)
             self.lock.release()
             return
+
         msg.sig = signature
 
         # Refuse normal-case requests during view changes
@@ -246,12 +252,15 @@ class BFT2F_Node(DatagramProtocol):
         last_rep_entry = self.replay_cache.get(msg.client_id)
         if last_rep_entry is not None:
             if last_rep_entry.req.ts > msg.ts:
+                self.printv("returning bc of ts %d %d" % (last_rep_entry.req.ts, msg.ts))
                 return
             elif last_rep_entry.req.ts == msg.ts:
                 self.printv('REPLAY! ts %d' % msg.ts)
                 self.send_msg(last_rep_entry.rep, address)
                 return
             elif last_rep_entry.rep.version.hcd != msg.version.hcd:
+                self.printv("client id %d"%(msg.client_id))
+                self.printv("hcd %s %s" % (last_rep_entry.rep.version.hcd, msg.version.hcd))
                 return
 
         # Read only optimization
@@ -280,18 +289,19 @@ class BFT2F_Node(DatagramProtocol):
                                             n=self.highest_accepted_n + 2,
                                             req_D=self.make_digest(msg.SerializeToString()),
                                             sig="")
-            pp_msg.sig = self.sign(pp_msg.SerializeToString())
+            pp_msg.sig = "You shall not pass" #self.sign(pp_msg.SerializeToString())
             self.send_multicast(pp_msg)
 
             # The primary updates its state before sending out any other
             # pre_prepare message
             self.handle_pre_prepare_helper(pp_msg)
+
+
         self.request_msgs[self.make_digest(msg.SerializeToString())] = msg
 
         # TODO: Does it make sense for the primary to set a view-change
         # timer for the primary, as we do here?
         self.start_timer()
-        #self.change_view()
 
     def handle_pre_prepare_helper(self, msg):
         """
@@ -368,8 +378,11 @@ class BFT2F_Node(DatagramProtocol):
         pending_n = [n for n in self.pre_prepare_msgs.keys()\
                            if n >= self.highest_committed_n + 1]
         for n in pending_n:
-            if len(self.prepare_msgs.setdefault(n, [])) >= 2 * F + 1:
-                p_msg = self.prepare_msgs[n][0]
+            pre_prepare = self.pre_prepare_msgs[n]
+            matching_prepares = [p for p in self.prepare_msgs.setdefault(n, [])
+                                    if self.prepares_match(p, pre_prepare)]            
+            if len(matching_prepares) >= 2 * F + 1:
+                p_msg = matching_prepares[0]
                 r_msg = self.request_msgs[p_msg.req_D]
                 new_hcd = self.make_digest(self.make_digest(r_msg.SerializeToString()) +\
                                                self.V[self.node_id].hcd)
@@ -599,7 +612,13 @@ class BFT2F_Node(DatagramProtocol):
         """
         for P_m in P:
             cur_pp_msg = P_m.msgs[0]
-            unique_p_msgs = list(set(P_m.msgs[1:]))
+            unique_nodes = set()
+            unique_p_msgs = []
+            for p_msg in P_m.msgs:
+                if p_msg.node_id not in unique_nodes:
+                    unique_nodes.add(p_msg.node_id)
+                    unique_p_msgs.add(p_msg)
+
             if len(unique_p_msgs) < 2 * F + 1:
                 return False            
             for u_p_msg in unique_p_msg:
@@ -747,7 +766,13 @@ class BFT2F_Node(DatagramProtocol):
 
     def valid_req_proof(self, req_proof):
         # 2*F+1 unique versions
-        unique_versions = list(set(req_proof.matching_versions))
+        unique_nodes = set()
+        unique_versions = []
+        for v in req_proof.matching_versions:
+            if v.node_id not in unique_nodes:
+                unique_nodes.add(v.node_id)
+                unique_p_msgs.add(v)
+
         if len(unique_versions) < 2 * F + 1:
             return False
         # TODO check sig
@@ -817,13 +842,9 @@ class BFT2F_Node(DatagramProtocol):
                                     user_id=op.user_id,
                                     token=op.token)
             user_store_ent = self.user_store.get(op.user_id)
-            user_store_ent= UserStoreEntry(user_pub_key="You shall not pass",
-                                           user_priv_key_enc=user_store_ent.user_priv_key_enc)
-
             sign_in_cert = BFT2f_SIGN_IN_CERT(
                 node_pub_key=self.server_pubkeys[self.node_id]._key.exportKey(),
                 sig=self.sign(op.token + user_store_ent.user_pub_key))
-            self.printv("auth_str="+op.token + user_store_ent.user_pub_key)
 
             return BFT2f_OP_RES(type=BFT2f_OP_RES.SUCCESS,
                                 op_type=op.type,
@@ -873,6 +894,10 @@ class BFT2F_Node(DatagramProtocol):
     # TODO: low water mark, high water mark
     def seqno_in_bounds(self, n):
         return n <= self.highest_accepted_n + 10
+
+    def prepares_match(self, p1, p2):        
+        return (p1.view == p2.view) and (p1.n == p2.n) and\
+            (p1.req_D == p2.req_D)
 
     def versions_match(self, v1, v2):
         return (v1.view == v2.view) and (v1.n == v2.n) and (v1.hcd == v2.hcd)

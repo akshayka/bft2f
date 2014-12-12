@@ -242,31 +242,37 @@ def sign_in(user_id, passphrase, client_id):
 def sign_in(u_and_p):
     user_id = u_and_p[0]
     passphrase = u_and_p[1]
-
-    os.system("./sign_in -u %s -p %s -cid '%s'" % (user_id, passphrase, "c%d" %(args.user_id)))
+    client_id = u_and_p[2]
+    os.system("./sign_in -u %s -p %s -cid '%s'" % (user_id, passphrase, "c%d" %(client_id)))
     return
 
 def latency_test():
 
     user_ids = []
     passphrases = []
-    for i in range(0, 50):
+    for i in range(0, 20):
         user_id = "user%d%d" % (i, args.user_id)
         passphrase = "pass%d" %(i)
         user_ids.append(user_id)
         passphrases.append(passphrase)
-        #os.system("./sign_up -u %s -p %s -cid '%s'" % (user_id, passphrase, "c%d" %(args.user_id)))
+        os.system("./sign_up -u %s -p %s -cid '%s'" % (user_id, passphrase, "c%d" %(args.user_id)))
 
         #sign_up("user%d%d" % (i, args.user_id), "pass%d" %(i), "c0")
 
-    p = Pool(50)
 
     t0  = time()
+    #print zip(user_ids, passphrases)
     
-    p.map(sign_in, zip(user_ids, passphrases))
-    print "Latency = %d" % (time() - t0)
+    #for user_id, passphrase, client_id in zip(user_ids, passphrases, [0] * 50):
+    #    sign_in((user_id, passphrase, client_id))
+
+    p = Pool(20)
+    
+    p.map(sign_in, zip(user_ids * 10, passphrases * 10, [0] * 200))
     p.close()
     p.join()
+
+    print "Latency = %d" % (time() - t0)
 
 
 
