@@ -1,0 +1,5 @@
+# For more information: 'haraka -h access'
+#
+# Hostnames and IPs are matched exactly as written on each line.
+10.0.0.11
+

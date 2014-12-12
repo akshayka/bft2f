@@ -1,0 +1,5 @@
+# add hosts in here we want to accept mail for
+haraka.local
+0.0.0.0
+gmail.com
+harakamail.com

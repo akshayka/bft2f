@@ -1,0 +1,354 @@
+loglevel: LOGPROTOCOL
+[DEBUG] [-] [core] No iconv available - install with 'npm install iconv'
+[DEBUG] [-] [core] Returning boolean true for main.daemonize=true
+Starting up Haraka version 2.5.0
+[INFO] [-] [core] Loading plugins
+[INFO] [-] [core] Loading plugin: access
+[INFO] [-] [core] loaded 6791 Public Suffixes
+[INFO] [-] [core] loaded TLD files: 1=442 2=4542 3=283
+[INFO] [-] [access] loading connect.rdns_access.whitelist
+[INFO] [-] [access] loading mail_from.access.whitelist
+[INFO] [-] [access] loading rcpt_to.access.whitelist
+[INFO] [-] [access] loading connect.rdns_access.blacklist
+[INFO] [-] [access] loading mail_from.access.blacklist
+[INFO] [-] [access] loading rcpt_to.access.blacklist
+[INFO] [-] [access] loading connect.rdns_access.whitelist_regex
+[INFO] [-] [access] loading mail_from.access.whitelist_regex
+[INFO] [-] [access] loading rcpt_to.access.whitelist_regex
+[INFO] [-] [access] loading connect.rdns_access.blacklist_regex
+[INFO] [-] [access] loading mail_from.access.blacklist_regex
+[INFO] [-] [access] loading rcpt_to.access.blacklist_regex
+[INFO] [-] [access] skipping helo.checks.regexps
+[DEBUG] [-] [core] registered hook connect to access.rdns_access
+[DEBUG] [-] [core] registered hook mail to access.mail_from_access
+[DEBUG] [-] [core] registered hook rcpt to access.rcpt_to_access
+[INFO] [-] [access] loading access.domains
+[DEBUG] [-] [core] registered hook connect to access.any
+[DEBUG] [-] [core] registered hook helo to access.any
+[DEBUG] [-] [core] registered hook ehlo to access.any
+[DEBUG] [-] [core] registered hook mail to access.any
+[DEBUG] [-] [core] registered hook rcpt to access.any
+[DEBUG] [-] [core] registered hook data_post to access.data_any
+[INFO] [-] [core] Loading plugin: data.headers
+[DEBUG] [-] [core] Returning boolean true for check.duplicate_singular=true
+[DEBUG] [-] [core] Returning boolean true for check.missing_required=true
+[DEBUG] [-] [core] Returning boolean true for check.invalid_return_path=true
+[DEBUG] [-] [core] Returning boolean true for check.invalid_date=true
+[DEBUG] [-] [core] Returning boolean true for check.user_agent=true
+[DEBUG] [-] [core] Returning boolean true for check.direct_to_mx=true
+[DEBUG] [-] [core] Returning boolean true for check.from_match=true
+[DEBUG] [-] [core] Returning boolean true for check.mailing_list=true
+[DEBUG] [-] [core] Returning boolean true for check.delivered_to=true
+[DEBUG] [-] [core] Returning boolean false for reject.duplicate_singular=false
+[DEBUG] [-] [core] Returning boolean false for reject.missing_required=false
+[DEBUG] [-] [core] Returning boolean false for reject.invalid_return_path=false
+[DEBUG] [-] [core] Returning boolean false for reject.invalid_date=false
+[DEBUG] [-] [core] Returning boolean true for reject.delivered_to=true
+[DEBUG] [-] [core] registered hook data_post to data.headers.duplicate_singular
+[DEBUG] [-] [core] registered hook data_post to data.headers.missing_required
+[DEBUG] [-] [core] registered hook data_post to data.headers.invalid_date
+[DEBUG] [-] [core] registered hook data_post to data.headers.invalid_return_path
+[DEBUG] [-] [core] registered hook data_post to data.headers.user_agent
+[DEBUG] [-] [core] registered hook data_post to data.headers.direct_to_mx
+[DEBUG] [-] [core] registered hook data_post to data.headers.from_match
+[DEBUG] [-] [core] registered hook data_post to data.headers.delivered_to
+[DEBUG] [-] [core] registered hook data_post to data.headers.mailing_list
+[INFO] [-] [core] Loading plugin: helo.checks
+[DEBUG] [-] [core] Returning boolean true for check.match_re=true
+[DEBUG] [-] [core] Returning boolean true for check.bare_ip=true
+[DEBUG] [-] [core] Returning boolean true for check.dynamic=true
+[DEBUG] [-] [core] Returning boolean true for check.big_company=true
+[DEBUG] [-] [core] Returning boolean true for check.valid_hostname=true
+[DEBUG] [-] [core] Returning boolean true for check.forward_dns=true
+[DEBUG] [-] [core] Returning boolean true for check.rdns_match=true
+[DEBUG] [-] [core] Returning boolean true for check.mismatch=true
+[DEBUG] [-] [core] Returning boolean true for reject.mismatch=true
+[DEBUG] [-] [core] Returning boolean false for reject.rdns_match=false
+[DEBUG] [-] [core] Returning boolean false for reject.dynamic=false
+[DEBUG] [-] [core] Returning boolean false for reject.bare_ip=false
+[DEBUG] [-] [core] Returning boolean false for reject.literal_mismatch=false
+[DEBUG] [-] [core] Returning boolean false for reject.valid_hostname=false
+[DEBUG] [-] [core] Returning boolean false for reject.forward_dns=false
+[DEBUG] [-] [core] Returning boolean true for reject.big_company=true
+[DEBUG] [-] [core] Returning boolean true for skip.private_ip=true
+[DEBUG] [-] [core] Returning boolean true for skip.relaying=true
+[DEBUG] [-] [core] registered hook helo to helo.checks.proto_mismatch_smtp
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.proto_mismatch_esmtp
+[DEBUG] [-] [core] registered hook helo to helo.checks.match_re
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.match_re
+[DEBUG] [-] [core] registered hook helo to helo.checks.bare_ip
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.bare_ip
+[DEBUG] [-] [core] registered hook helo to helo.checks.dynamic
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.dynamic
+[DEBUG] [-] [core] registered hook helo to helo.checks.big_company
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.big_company
+[DEBUG] [-] [core] registered hook helo to helo.checks.literal_mismatch
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.literal_mismatch
+[DEBUG] [-] [core] registered hook helo to helo.checks.valid_hostname
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.valid_hostname
+[DEBUG] [-] [core] registered hook helo to helo.checks.rdns_match
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.rdns_match
+[DEBUG] [-] [core] registered hook helo to helo.checks.forward_dns
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.forward_dns
+[INFO] [-] [core] Loading plugin: tls
+[INFO] [-] [tls] loading tls.ini
+[INFO] [-] [tls] loading tls_key.pem
+[INFO] [-] [tls] loading tls_cert.pem
+[DEBUG] [-] [tls] { key: <Buffer 2d 2d 2d 2d 2d 42 45 47 49 4e 20 52 53 41 20 50 52 49 56 41 54 45 20 4b 45 59 2d 2d 2d 2d 2d 0a 4d 49 49 45 6f 77 49 42 41 41 4b 43 41 51 45 41 74 43 43 ...>,
+  cert: <Buffer 2d 2d 2d 2d 2d 42 45 47 49 4e 20 43 45 52 54 49 46 49 43 41 54 45 2d 2d 2d 2d 2d 0a 4d 49 49 44 4d 44 43 43 41 68 67 43 43 51 44 53 41 79 48 4b 74 6a 4a ...>,
+  ciphers: 'ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-RSA-AES128-SHA256:DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA:ECDHE-RSA-DES-CBC3-SHA:EDH-RSA-DES-CBC3-SHA:AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-SHA256:AES128-SHA256:AES256-SHA:AES128-SHA:DES-CBC3-SHA:HIGH:!aNULL:!eNULL:!EXPORT:!DES:!MD5:!PSK:!RC4',
+  requestCert: true,
+  rejectUnauthorized: false }
+[DEBUG] [-] [core] registered hook capabilities to tls.hook_capabilities
+[DEBUG] [-] [core] registered hook unrecognized_command to tls.hook_unrecognized_command
+[INFO] [-] [core] Loading plugin: mail_from.is_resolvable
+[DEBUG] [-] [core] registered hook mail to mail_from.is_resolvable.hook_mail
+[INFO] [-] [core] Loading plugin: rcpt_to.in_host_list
+[INFO] [-] [rcpt_to.in_host_list] loading host_list
+[INFO] [-] [rcpt_to.in_host_list] loading host_list_regex
+[DEBUG] [-] [core] registered hook rcpt to rcpt_to.in_host_list.hook_rcpt
+[DEBUG] [-] [core] registered hook mail to rcpt_to.in_host_list.hook_mail
+[INFO] [-] [core] Loading plugin: queue/smtp_forward
+[DEBUG] [-] [core] Returning boolean true for main.enable_tls=1
+[DEBUG] [-] [core] registered hook queue to queue/smtp_forward.hook_queue
+[DEBUG] [-] [core] registered hook queue_outbound to queue/smtp_forward.hook_queue_outbound
+[INFO] [-] [core] Loading plugin: auth/auth_cert
+[DEBUG] [-] [core] registered hook capabilities to auth/auth_cert.hook_capabilities
+[DEBUG] [-] [core] registered hook unrecognized_command to auth/auth_cert.hook_unrecognized_command
+[NOTICE] [-] [core] Daemonizing...
+loglevel: LOGPROTOCOL
+[DEBUG] [-] [core] No iconv available - install with 'npm install iconv'
+[DEBUG] [-] [core] Returning boolean true for main.daemonize=true
+Starting up Haraka version 2.5.0
+[INFO] [-] [core] Loading plugins
+[INFO] [-] [core] Loading plugin: access
+[INFO] [-] [core] loaded 6791 Public Suffixes
+[INFO] [-] [core] loaded TLD files: 1=442 2=4542 3=283
+[INFO] [-] [access] loading connect.rdns_access.whitelist
+[INFO] [-] [access] loading mail_from.access.whitelist
+[INFO] [-] [access] loading rcpt_to.access.whitelist
+[INFO] [-] [access] loading connect.rdns_access.blacklist
+[INFO] [-] [access] loading mail_from.access.blacklist
+[INFO] [-] [access] loading rcpt_to.access.blacklist
+[INFO] [-] [access] loading connect.rdns_access.whitelist_regex
+[INFO] [-] [access] loading mail_from.access.whitelist_regex
+[INFO] [-] [access] loading rcpt_to.access.whitelist_regex
+[INFO] [-] [access] loading connect.rdns_access.blacklist_regex
+[INFO] [-] [access] loading mail_from.access.blacklist_regex
+[INFO] [-] [access] loading rcpt_to.access.blacklist_regex
+[INFO] [-] [access] skipping helo.checks.regexps
+[DEBUG] [-] [core] registered hook connect to access.rdns_access
+[DEBUG] [-] [core] registered hook mail to access.mail_from_access
+[DEBUG] [-] [core] registered hook rcpt to access.rcpt_to_access
+[INFO] [-] [access] loading access.domains
+[DEBUG] [-] [core] registered hook connect to access.any
+[DEBUG] [-] [core] registered hook helo to access.any
+[DEBUG] [-] [core] registered hook ehlo to access.any
+[DEBUG] [-] [core] registered hook mail to access.any
+[DEBUG] [-] [core] registered hook rcpt to access.any
+[DEBUG] [-] [core] registered hook data_post to access.data_any
+[INFO] [-] [core] Loading plugin: data.headers
+[DEBUG] [-] [core] Returning boolean true for check.duplicate_singular=true
+[DEBUG] [-] [core] Returning boolean true for check.missing_required=true
+[DEBUG] [-] [core] Returning boolean true for check.invalid_return_path=true
+[DEBUG] [-] [core] Returning boolean true for check.invalid_date=true
+[DEBUG] [-] [core] Returning boolean true for check.user_agent=true
+[DEBUG] [-] [core] Returning boolean true for check.direct_to_mx=true
+[DEBUG] [-] [core] Returning boolean true for check.from_match=true
+[DEBUG] [-] [core] Returning boolean true for check.mailing_list=true
+[DEBUG] [-] [core] Returning boolean true for check.delivered_to=true
+[DEBUG] [-] [core] Returning boolean false for reject.duplicate_singular=false
+[DEBUG] [-] [core] Returning boolean false for reject.missing_required=false
+[DEBUG] [-] [core] Returning boolean false for reject.invalid_return_path=false
+[DEBUG] [-] [core] Returning boolean false for reject.invalid_date=false
+[DEBUG] [-] [core] Returning boolean true for reject.delivered_to=true
+[DEBUG] [-] [core] registered hook data_post to data.headers.duplicate_singular
+[DEBUG] [-] [core] registered hook data_post to data.headers.missing_required
+[DEBUG] [-] [core] registered hook data_post to data.headers.invalid_date
+[DEBUG] [-] [core] registered hook data_post to data.headers.invalid_return_path
+[DEBUG] [-] [core] registered hook data_post to data.headers.user_agent
+[DEBUG] [-] [core] registered hook data_post to data.headers.direct_to_mx
+[DEBUG] [-] [core] registered hook data_post to data.headers.from_match
+[DEBUG] [-] [core] registered hook data_post to data.headers.delivered_to
+[DEBUG] [-] [core] registered hook data_post to data.headers.mailing_list
+[INFO] [-] [core] Loading plugin: helo.checks
+[DEBUG] [-] [core] Returning boolean true for check.match_re=true
+[DEBUG] [-] [core] Returning boolean true for check.bare_ip=true
+[DEBUG] [-] [core] Returning boolean true for check.dynamic=true
+[DEBUG] [-] [core] Returning boolean true for check.big_company=true
+[DEBUG] [-] [core] Returning boolean true for check.valid_hostname=true
+[DEBUG] [-] [core] Returning boolean true for check.forward_dns=true
+[DEBUG] [-] [core] Returning boolean true for check.rdns_match=true
+[DEBUG] [-] [core] Returning boolean true for check.mismatch=true
+[DEBUG] [-] [core] Returning boolean true for reject.mismatch=true
+[DEBUG] [-] [core] Returning boolean false for reject.rdns_match=false
+[DEBUG] [-] [core] Returning boolean false for reject.dynamic=false
+[DEBUG] [-] [core] Returning boolean false for reject.bare_ip=false
+[DEBUG] [-] [core] Returning boolean false for reject.literal_mismatch=false
+[DEBUG] [-] [core] Returning boolean false for reject.valid_hostname=false
+[DEBUG] [-] [core] Returning boolean false for reject.forward_dns=false
+[DEBUG] [-] [core] Returning boolean true for reject.big_company=true
+[DEBUG] [-] [core] Returning boolean true for skip.private_ip=true
+[DEBUG] [-] [core] Returning boolean true for skip.relaying=true
+[DEBUG] [-] [core] registered hook helo to helo.checks.proto_mismatch_smtp
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.proto_mismatch_esmtp
+[DEBUG] [-] [core] registered hook helo to helo.checks.match_re
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.match_re
+[DEBUG] [-] [core] registered hook helo to helo.checks.bare_ip
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.bare_ip
+[DEBUG] [-] [core] registered hook helo to helo.checks.dynamic
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.dynamic
+[DEBUG] [-] [core] registered hook helo to helo.checks.big_company
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.big_company
+[DEBUG] [-] [core] registered hook helo to helo.checks.literal_mismatch
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.literal_mismatch
+[DEBUG] [-] [core] registered hook helo to helo.checks.valid_hostname
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.valid_hostname
+[DEBUG] [-] [core] registered hook helo to helo.checks.rdns_match
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.rdns_match
+[DEBUG] [-] [core] registered hook helo to helo.checks.forward_dns
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.forward_dns
+[INFO] [-] [core] Loading plugin: tls
+[INFO] [-] [tls] loading tls.ini
+[INFO] [-] [tls] loading tls_key.pem
+[INFO] [-] [tls] loading tls_cert.pem
+[DEBUG] [-] [tls] { key: <Buffer 2d 2d 2d 2d 2d 42 45 47 49 4e 20 52 53 41 20 50 52 49 56 41 54 45 20 4b 45 59 2d 2d 2d 2d 2d 0a 4d 49 49 45 6f 77 49 42 41 41 4b 43 41 51 45 41 74 43 43 ...>,
+  cert: <Buffer 2d 2d 2d 2d 2d 42 45 47 49 4e 20 43 45 52 54 49 46 49 43 41 54 45 2d 2d 2d 2d 2d 0a 4d 49 49 44 4d 44 43 43 41 68 67 43 43 51 44 53 41 79 48 4b 74 6a 4a ...>,
+  ciphers: 'ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-RSA-AES128-SHA256:DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA:ECDHE-RSA-DES-CBC3-SHA:EDH-RSA-DES-CBC3-SHA:AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-SHA256:AES128-SHA256:AES256-SHA:AES128-SHA:DES-CBC3-SHA:HIGH:!aNULL:!eNULL:!EXPORT:!DES:!MD5:!PSK:!RC4',
+  requestCert: true,
+  rejectUnauthorized: false }
+[DEBUG] [-] [core] registered hook capabilities to tls.hook_capabilities
+[DEBUG] [-] [core] registered hook unrecognized_command to tls.hook_unrecognized_command
+[INFO] [-] [core] Loading plugin: mail_from.is_resolvable
+[DEBUG] [-] [core] registered hook mail to mail_from.is_resolvable.hook_mail
+[INFO] [-] [core] Loading plugin: rcpt_to.in_host_list
+[INFO] [-] [rcpt_to.in_host_list] loading host_list
+[INFO] [-] [rcpt_to.in_host_list] loading host_list_regex
+[DEBUG] [-] [core] registered hook rcpt to rcpt_to.in_host_list.hook_rcpt
+[DEBUG] [-] [core] registered hook mail to rcpt_to.in_host_list.hook_mail
+[INFO] [-] [core] Loading plugin: queue/smtp_forward
+[DEBUG] [-] [core] Returning boolean true for main.enable_tls=1
+[DEBUG] [-] [core] registered hook queue to queue/smtp_forward.hook_queue
+[DEBUG] [-] [core] registered hook queue_outbound to queue/smtp_forward.hook_queue_outbound
+[INFO] [-] [core] Loading plugin: auth/auth_cert
+[DEBUG] [-] [core] registered hook capabilities to auth/auth_cert.hook_capabilities
+[DEBUG] [-] [core] registered hook unrecognized_command to auth/auth_cert.hook_unrecognized_command
+[NOTICE] [-] [core] Daemonizing...
+loglevel: LOGPROTOCOL
+[DEBUG] [-] [core] No iconv available - install with 'npm install iconv'
+[DEBUG] [-] [core] Returning boolean true for main.daemonize=true
+Starting up Haraka version 2.5.0
+[INFO] [-] [core] Loading plugins
+[INFO] [-] [core] Loading plugin: access
+[INFO] [-] [core] loaded 6791 Public Suffixes
+[INFO] [-] [core] loaded TLD files: 1=442 2=4542 3=283
+[INFO] [-] [access] loading connect.rdns_access.whitelist
+[INFO] [-] [access] loading mail_from.access.whitelist
+[INFO] [-] [access] loading rcpt_to.access.whitelist
+[INFO] [-] [access] loading connect.rdns_access.blacklist
+[INFO] [-] [access] loading mail_from.access.blacklist
+[INFO] [-] [access] loading rcpt_to.access.blacklist
+[INFO] [-] [access] loading connect.rdns_access.whitelist_regex
+[INFO] [-] [access] loading mail_from.access.whitelist_regex
+[INFO] [-] [access] loading rcpt_to.access.whitelist_regex
+[INFO] [-] [access] loading connect.rdns_access.blacklist_regex
+[INFO] [-] [access] loading mail_from.access.blacklist_regex
+[INFO] [-] [access] loading rcpt_to.access.blacklist_regex
+[INFO] [-] [access] skipping helo.checks.regexps
+[DEBUG] [-] [core] registered hook connect to access.rdns_access
+[DEBUG] [-] [core] registered hook mail to access.mail_from_access
+[DEBUG] [-] [core] registered hook rcpt to access.rcpt_to_access
+[INFO] [-] [access] loading access.domains
+[DEBUG] [-] [core] registered hook connect to access.any
+[DEBUG] [-] [core] registered hook helo to access.any
+[DEBUG] [-] [core] registered hook ehlo to access.any
+[DEBUG] [-] [core] registered hook mail to access.any
+[DEBUG] [-] [core] registered hook rcpt to access.any
+[DEBUG] [-] [core] registered hook data_post to access.data_any
+[INFO] [-] [core] Loading plugin: data.headers
+[DEBUG] [-] [core] Returning boolean true for check.duplicate_singular=true
+[DEBUG] [-] [core] Returning boolean true for check.missing_required=true
+[DEBUG] [-] [core] Returning boolean true for check.invalid_return_path=true
+[DEBUG] [-] [core] Returning boolean true for check.invalid_date=true
+[DEBUG] [-] [core] Returning boolean true for check.user_agent=true
+[DEBUG] [-] [core] Returning boolean true for check.direct_to_mx=true
+[DEBUG] [-] [core] Returning boolean true for check.from_match=true
+[DEBUG] [-] [core] Returning boolean true for check.mailing_list=true
+[DEBUG] [-] [core] Returning boolean true for check.delivered_to=true
+[DEBUG] [-] [core] Returning boolean false for reject.duplicate_singular=false
+[DEBUG] [-] [core] Returning boolean false for reject.missing_required=false
+[DEBUG] [-] [core] Returning boolean false for reject.invalid_return_path=false
+[DEBUG] [-] [core] Returning boolean false for reject.invalid_date=false
+[DEBUG] [-] [core] Returning boolean true for reject.delivered_to=true
+[DEBUG] [-] [core] registered hook data_post to data.headers.duplicate_singular
+[DEBUG] [-] [core] registered hook data_post to data.headers.missing_required
+[DEBUG] [-] [core] registered hook data_post to data.headers.invalid_date
+[DEBUG] [-] [core] registered hook data_post to data.headers.invalid_return_path
+[DEBUG] [-] [core] registered hook data_post to data.headers.user_agent
+[DEBUG] [-] [core] registered hook data_post to data.headers.direct_to_mx
+[DEBUG] [-] [core] registered hook data_post to data.headers.from_match
+[DEBUG] [-] [core] registered hook data_post to data.headers.delivered_to
+[DEBUG] [-] [core] registered hook data_post to data.headers.mailing_list
+[INFO] [-] [core] Loading plugin: helo.checks
+[DEBUG] [-] [core] Returning boolean true for check.match_re=true
+[DEBUG] [-] [core] Returning boolean true for check.bare_ip=true
+[DEBUG] [-] [core] Returning boolean true for check.dynamic=true
+[DEBUG] [-] [core] Returning boolean true for check.big_company=true
+[DEBUG] [-] [core] Returning boolean true for check.valid_hostname=true
+[DEBUG] [-] [core] Returning boolean true for check.forward_dns=true
+[DEBUG] [-] [core] Returning boolean true for check.rdns_match=true
+[DEBUG] [-] [core] Returning boolean true for check.mismatch=true
+[DEBUG] [-] [core] Returning boolean true for reject.mismatch=true
+[DEBUG] [-] [core] Returning boolean false for reject.rdns_match=false
+[DEBUG] [-] [core] Returning boolean false for reject.dynamic=false
+[DEBUG] [-] [core] Returning boolean false for reject.bare_ip=false
+[DEBUG] [-] [core] Returning boolean false for reject.literal_mismatch=false
+[DEBUG] [-] [core] Returning boolean false for reject.valid_hostname=false
+[DEBUG] [-] [core] Returning boolean false for reject.forward_dns=false
+[DEBUG] [-] [core] Returning boolean true for reject.big_company=true
+[DEBUG] [-] [core] Returning boolean true for skip.private_ip=true
+[DEBUG] [-] [core] Returning boolean true for skip.relaying=true
+[DEBUG] [-] [core] registered hook helo to helo.checks.proto_mismatch_smtp
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.proto_mismatch_esmtp
+[DEBUG] [-] [core] registered hook helo to helo.checks.match_re
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.match_re
+[DEBUG] [-] [core] registered hook helo to helo.checks.bare_ip
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.bare_ip
+[DEBUG] [-] [core] registered hook helo to helo.checks.dynamic
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.dynamic
+[DEBUG] [-] [core] registered hook helo to helo.checks.big_company
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.big_company
+[DEBUG] [-] [core] registered hook helo to helo.checks.literal_mismatch
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.literal_mismatch
+[DEBUG] [-] [core] registered hook helo to helo.checks.valid_hostname
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.valid_hostname
+[DEBUG] [-] [core] registered hook helo to helo.checks.rdns_match
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.rdns_match
+[DEBUG] [-] [core] registered hook helo to helo.checks.forward_dns
+[DEBUG] [-] [core] registered hook ehlo to helo.checks.forward_dns
+[INFO] [-] [core] Loading plugin: tls
+[INFO] [-] [tls] loading tls.ini
+[INFO] [-] [tls] loading tls_key.pem
+[INFO] [-] [tls] loading tls_cert.pem
+[DEBUG] [-] [tls] { key: <Buffer 2d 2d 2d 2d 2d 42 45 47 49 4e 20 52 53 41 20 50 52 49 56 41 54 45 20 4b 45 59 2d 2d 2d 2d 2d 0a 4d 49 49 45 6f 77 49 42 41 41 4b 43 41 51 45 41 74 43 43 ...>,
+  cert: <Buffer 2d 2d 2d 2d 2d 42 45 47 49 4e 20 43 45 52 54 49 46 49 43 41 54 45 2d 2d 2d 2d 2d 0a 4d 49 49 44 4d 44 43 43 41 68 67 43 43 51 44 53 41 79 48 4b 74 6a 4a ...>,
+  ciphers: 'ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-RSA-AES128-SHA256:DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA:ECDHE-RSA-DES-CBC3-SHA:EDH-RSA-DES-CBC3-SHA:AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-SHA256:AES128-SHA256:AES256-SHA:AES128-SHA:DES-CBC3-SHA:HIGH:!aNULL:!eNULL:!EXPORT:!DES:!MD5:!PSK:!RC4',
+  requestCert: true,
+  rejectUnauthorized: false }
+[DEBUG] [-] [core] registered hook capabilities to tls.hook_capabilities
+[DEBUG] [-] [core] registered hook unrecognized_command to tls.hook_unrecognized_command
+[INFO] [-] [core] Loading plugin: mail_from.is_resolvable
+[DEBUG] [-] [core] registered hook mail to mail_from.is_resolvable.hook_mail
+[INFO] [-] [core] Loading plugin: rcpt_to.in_host_list
+[INFO] [-] [rcpt_to.in_host_list] loading host_list
+[INFO] [-] [rcpt_to.in_host_list] loading host_list_regex
+[DEBUG] [-] [core] registered hook rcpt to rcpt_to.in_host_list.hook_rcpt
+[DEBUG] [-] [core] registered hook mail to rcpt_to.in_host_list.hook_mail
+[INFO] [-] [core] Loading plugin: queue/smtp_forward
+[DEBUG] [-] [core] Returning boolean true for main.enable_tls=1
+[DEBUG] [-] [core] registered hook queue to queue/smtp_forward.hook_queue
+[DEBUG] [-] [core] registered hook queue_outbound to queue/smtp_forward.hook_queue_outbound
+[INFO] [-] [core] Loading plugin: auth/auth_cert
+[DEBUG] [-] [core] registered hook capabilities to auth/auth_cert.hook_capabilities
+[DEBUG] [-] [core] registered hook unrecognized_command to auth/auth_cert.hook_unrecognized_command
+[NOTICE] [-] [core] Daemonizing...
