@@ -55,11 +55,10 @@ class BFT2F_Node(DatagramProtocol):
         # low_water_mark and high_water_mark
         #
         # invariant: low_water_mark == highest sequence number in last checkpoint
-        # TODO: Remove these if we do not finish the checkpoint implementation
+        # TODO: Currently unused because checkpointing not finished
         self.low_water_mark = 0
         self.high_water_mark = self.low_water_mark + WATER_MARK_DELTA
 
-        # TODO: Are we going to use these still? -A
         self.NO_OP_REQUEST = BFT2F_MESSAGE(msg_type=BFT2F_MESSAGE.REQUEST,
                                            op=BFT2F_OP(type=NO_OP, user_id='no_op'),
                                            sig='no_op')
@@ -123,6 +122,7 @@ class BFT2F_Node(DatagramProtocol):
         #
         # Consists of 3F + 1 tuples: <node_id, view, n, hcd>
         self.V = [None] * (3 * F + 1)
+
         #TODO what if it's retored from temporal outage?
         #I guess we may need some protocol to ask around using multicast -J
         for i in xrange(0, 3 * F + 1):
@@ -242,7 +242,6 @@ class BFT2F_Node(DatagramProtocol):
         self.lock.release()
         
     def handle_request(self, msg, address):
-        #TODO check fork state 
         last_rep_entry = self.replay_cache.get(msg.client_id)
         if last_rep_entry is not None:
             if last_rep_entry.req.ts > msg.ts:
@@ -277,9 +276,6 @@ class BFT2F_Node(DatagramProtocol):
             self.handle_pre_prepare_helper(pp_msg)
 
         self.request_msgs[self.make_digest(msg.SerializeToString())] = msg
-
-        # TODO: Does it make sense for the primary to set a view-change
-        # timer for the primary, as we do here?
         self.start_timer()
 
     def handle_pre_prepare_helper(self, msg):
@@ -415,10 +411,6 @@ class BFT2F_Node(DatagramProtocol):
             # the next client request we receive will do so for us.
             r_msg = self.request_msgs[self.pre_prepare_msgs[msg.version.n].req_D]
             self.handle_commit_helper(r_msg)
-            # TODO According to the original paper, we generate
-            # a checkpoint 'when a request with a sequence number divisible
-            # by some constant is executed.' But what if the primary is an adversary
-            # and always skips such sequence numbers? -A
             if msg.version.n % CHECKPOINT_INTERVAL == 0:
                 self.make_checkpoint(msg.version.n)
 
@@ -700,7 +692,6 @@ class BFT2F_Node(DatagramProtocol):
     def handle_fast_forward_req(self, msg, address):
         req_proofs = []
         r_version = self.V[self.node_id]        
-        # TODO Double check this logic -A
         if self.version_dominates(r_version, msg.version) and\
                 r_version.n in self.T and self.T[msg.version.n].hcd == r_version.hcd and\
                 msg.version.n in self.T and self.T[msg.version.n].hcd == msg.version.hcd:
@@ -740,7 +731,6 @@ class BFT2F_Node(DatagramProtocol):
             self.handle_view_change(self.pending_view_change_msgs[msg.node_id], address)
         elif self.pending_new_view_msg and\
              msg.node_id == self.pending_new_view_msg.node_id:
-            # TODO double check this logic -A
             self.process_new_view(self.pending_new_view_msg)
 
     def valid_req_proof(self, req_proof):
@@ -754,7 +744,6 @@ class BFT2F_Node(DatagramProtocol):
 
         if len(unique_versions) < 2 * F + 1:
             return False
-        # TODO check sig
         new_v = unique_versions[0]
         if not self.version_dominates(new_v, self.V[self.node_id]):
             return False
@@ -801,7 +790,6 @@ class BFT2F_Node(DatagramProtocol):
             self.printv('CANCEL Timer')
 
     def execute_op(self, op):
-        #TODO tokens
         if op.type == SIGN_UP:
             if op.user_id in self.user_store:
                 return BFT2f_OP_RES(type=BFT2f_OP_RES.USER_ID_EXISTS,
@@ -855,6 +843,7 @@ class BFT2F_Node(DatagramProtocol):
                                 user_pub_key=op.new_user_pub_key,
                                 user_priv_key_enc=op.new_user_priv_key_enc)
 
+    # TODO: Incomplete implementation
     def make_checkpoint(self, n):
         hcd_n = self.T[n]
         self.pending_checkpoints[n] = Checkpoint(kv_store=self.kv_store,
@@ -870,7 +859,6 @@ class BFT2F_Node(DatagramProtocol):
         ck_msg.sig = self.sign(ck_msg.SerializeToString())
         self.send_multicast(ck_msg)
 
-    # TODO: low water mark, high water mark
     def seqno_in_bounds(self, n):
         return n <= self.highest_accepted_n + 10
 
